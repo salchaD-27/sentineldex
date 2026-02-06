@@ -69,14 +69,41 @@ export default function Account(){
         e.preventDefault();
         if (!token1Address || !token2Address) return;
         try {
+            setLoading(true);
+            setError(null);
             const res = await fetch('http://localhost:3001/api/create-pool', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ token1: token1Address, token2: token2Address }),
             });
             const data = await res.json();
             console.log('Pool creation response:', data);
+            
+            if (data.success) {
+                // Show live confirmation
+                setError(null);
+                alert(`Pool created successfully!\nPool Address: ${data.pool}\nTx Hash: ${data.txHash}`);
+                
+                // Clear form
+                setToken1Address('');
+                setToken2Address('');
+                
+                // Refresh pools list
+                const poolsRes = await fetch('http://localhost:3001/api/pools', {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({walletAddress: address}) 
+                });
+                if(!poolsRes.ok) throw new Error('Failed to fetch pools');
+                const { pools: newPools } = await poolsRes.json();
+                setPools(newPools);
+                console.log('Updated pools:', newPools);
+            } else {
+                alert(`Error: ${data.error}`);
+            }
         } catch (err) {
             console.error('Error creating pool:', err);
+            alert('Failed to create pool. Please try again.');
+        } finally {
+            setLoading(false);
         }
     };
 
