@@ -32,6 +32,8 @@ const erc20Abi = [
 const dexPoolAbi = [
   "function lpTokenAddress() view returns (address)",
   "function getReserves() view returns (uint256,uint256)",
+  "function token0() view returns (address)",
+  "function token1() view returns (address)"
 ];
 
 const __filename = fileURLToPath(import.meta.url);
@@ -70,28 +72,56 @@ router.post('/pools', async (req, res) => {
     const events = await contract.queryFilter(filter, 0, "latest");
 
     const poolsRaw = await Promise.all(events.map(async (event) => {
-        const poolAddress = event.args?.pool;
-        if (!poolAddress) return null; // Skip events with missing pool address
+        // Check if event and args exist
+        if (!event || !event.args) {
+            console.warn('Skipping event with missing args:', event);
+            return null;
+        }
+        
+        const poolAddress = event.args.pool;
+        const token0Address = event.args.token0;
+        const token1Address = event.args.token1;
+        
+        // Skip if any required address is missing or invalid
+        if (!poolAddress || !token0Address || !token1Address) {
+            console.warn('Skipping event with missing addresses:', { poolAddress, token0Address, token1Address });
+            return null;
+        }
         
         const poolContract = new ethers.Contract(poolAddress, dexPoolAbi, provider);
-        const lpTokenAddr = await poolContract.lpTokenAddress();
+        let lpTokenAddr;
+        let reserve0 = "0";
+        let reserve1 = "0";
+        try {
+            [lpTokenAddr, [reserve0, reserve1]] = await Promise.all([
+                poolContract.lpTokenAddress(),
+                poolContract.getReserves().then(r => [r[0].toString(), r[1].toString()])
+            ]);
+        } catch (err) {
+            console.warn(`Failed to get pool data for ${poolAddress}:`, err);
+            return null;
+        }
+
         const lpToken = new ethers.Contract(lpTokenAddr, erc20Abi, provider);
+
         const [balance, totalSupply, symbol] = await Promise.all([
             lpToken.balanceOf(walletAddress),
             lpToken.totalSupply(),
             lpToken.symbol(),
         ]);
       
-        const token0Info = await getTokenInfo(event.args.token0);
-        const token1Info = await getTokenInfo(event.args.token1);
+        const token0Info = await getTokenInfo(token0Address);
+        const token1Info = await getTokenInfo(token1Address);
         return {
-            pool: event.args.pool,
+            pool: poolAddress,
             token0: token0Info.symbol,
             token1: token1Info.symbol,
             lpTokenAddress: lpTokenAddr,
             lpTokenSymbol: symbol,
             balance: balance.toString(),
             lpTotalSupply: totalSupply.toString(),
+            reserve0: reserve0.toString(),
+            reserve1: reserve1.toString(),
         };
     }));
 

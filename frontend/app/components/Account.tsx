@@ -11,6 +11,8 @@ interface Pools{
     lpTokenSymbol: string,
     balance: number,
     lpTotalSupply: string,
+    reserve0: string,
+    reserve1: string,
 }
 
 interface Tokens{
@@ -23,7 +25,9 @@ interface Tokens{
 
 export default function Account(){
     const [open, setOpen] = useState<number>(1);
-    const [sideOpen, setSideOpen] = useState<string>('');
+    const [isSideOpen, setIsSideOpen] = useState<boolean>(false);
+    const [sidePool, setSidePool] = useState<Pools>();
+
     const [pools, setPools] = useState<Pools[]>([]);
     const [tokens, setTokens] = useState<Tokens[]>([]);
     const [loading, setLoading] = useState(true);
@@ -111,8 +115,8 @@ export default function Account(){
         <div className="h-full w-full flex items-center justify-center gap-[10px]">
             <div className="h-[90%] w-[60%] flex flex-col items-center justify-center border-r-1 border-white">
                 <div className="h-[10%] w-[90%] flex items-center justify-center gap-[10px] font-semibold">
-                    <button onClick={()=>setOpen(0)} className="h-auto w-[100px] p-[10px] rounded border-1 border-white bg-white text-black text-[90%] hover:opacity-70 cursor-pointer">Pools</button>
-                    <button onClick={()=>setOpen(1)} className="h-auto w-[100px] p-[10px] rounded border-1 border-white bg-white text-black text-[90%] hover:opacity-70 cursor-pointer">Tokens</button>
+                    <button onClick={()=>{setOpen(0);setIsSideOpen(false)}} className="h-auto w-[100px] p-[10px] rounded border-1 border-white bg-white text-black text-[90%] hover:opacity-70 cursor-pointer">Pools</button>
+                    <button onClick={()=>{setOpen(1);setIsSideOpen(false)}} className="h-auto w-[100px] p-[10px] rounded border-1 border-white bg-white text-black text-[90%] hover:opacity-70 cursor-pointer">Tokens</button>
                 </div>
                 <div className="h-[90%] w-[90%] flex flex-col items-center justify-center">
                     {open==0?(
@@ -127,7 +131,7 @@ export default function Account(){
                             <div className="h-full w-1/7 flex items-center justify-center">%</div>
                             <div className="h-full w-[10px] flex items-center justify-center"></div>
                         </div>
-                        <div className="h-[90%] w-full flex flex-col items-center justify-start pt-[7px]">
+                        <div className="h-[90%] w-full flex flex-col items-center justify-start pt-[7px] overflow-y-auto overflow-scroll">
                             {pools.map((pool, idx)=>(
                                 <div key={idx} className="h-[7%] w-full flex items-center justify-center">
                                     <div className="h-full w-1/7 flex items-center justify-center"><CopyButton address={pool.pool}/></div>
@@ -137,7 +141,7 @@ export default function Account(){
                                     <div className="h-full w-1/7 flex items-center justify-center">{pool.lpTokenSymbol}</div>
                                     <div className="h-full w-1/7 flex items-center justify-center">{Number(pool.balance)}</div>
                                     <div className="h-full w-1/7 flex items-center justify-center">{Number(pool.lpTotalSupply) > 0 ? (Number(pool.balance) * 100 / Number(pool.lpTotalSupply)).toFixed(2) : '0.00'}</div>
-                                    <div onClick={()=>setSideOpen(pool.lpTokenSymbol)} className="h-1/2 w-[10px] flex items-center justify-center hover:opacity-70 cursor-pointer">►</div>
+                                    <div onClick={()=>{setIsSideOpen(true);setSidePool(pool);}} className="h-1/2 w-[10px] flex items-center justify-center hover:opacity-70 cursor-pointer">►</div>
                                 </div>
                             ))}
                             {loading && <div className="h-full w-full flex items-center justify-center">
@@ -180,41 +184,87 @@ export default function Account(){
             </div>
 
 
-            <div className="h-[90%] w-[30%] flex flex-col items-center justify-start bg-neutral-800 rounded">
-                <div className="h-[10vh] w-full flex items-center justify-center text-[154%] font-semibold">Create New Pool</div>
-                <form id="tokenForm" onSubmit={handleCreatePool} className="h-auto w-[90%] flex flex-col items-center justify-center gap-[2vh]">
-                    <div className="h-auto w-full flex flex-col items-center justify-center gap-[10px]">
-                        <div className="h-[] w-full flex items-center justify-center text-[120%]">Token 1 Address</div>
-                        <input
-                        type="text"
-                        id="token1"
-                        name="token1"
-                        placeholder="0x..."
-                        required
-                        pattern="0x[a-fA-F0-9]{40}"
-                        title="Enter a valid ERC20 token address"
-                        value={token1Address}
-                        onChange={(e) => setToken1Address(e.target.value)}
-                        className="h-[40px] w-full border-1 border-white rounded focus:outline-2 focus:outline-white px-[4px]"
-                        />
+
+            <div className="relative h-[90%] w-[30%] flex flex-col items-center justify-start bg-neutral-800 rounded">
+                {isSideOpen?
+                <>
+                
+                
+                    {Number(sidePool?.lpTotalSupply)===0 && <div className="absolute top-[10px] right-[10px] h-auto w-auto p-[10px] text-[100%] font-semibold rounded border-2 border-white bg-green-700">Bootstrap</div>}
+                    <div className="h-[15%] w-full flex flex-col items-center justify-center text-[100%] font-semibold">
+                        <span>Liquidity Pool</span>
+                        <span className="text-[154%]">{sidePool?.lpTokenSymbol}</span>
+                        <span>&nbsp;</span>
+                        <span>Total Supply: {sidePool?.lpTotalSupply}</span>
                     </div>
-                    <div className="h-auto w-full flex flex-col items-center justify-center gap-[10px]">
-                        <div className="h-[] w-full flex items-center justify-center text-[120%]">Token 2 Address</div>
-                        <input
-                        type="text"
-                        id="token2"
-                        name="token2"
-                        placeholder="0x..."
-                        required
-                        pattern="0x[a-fA-F0-9]{40}"
-                        title="Enter a valid ERC20 token address"
-                        value={token2Address}
-                        onChange={(e) => setToken2Address(e.target.value)}
-                        className="h-[40px] w-full border-1 border-white rounded focus:outline-2 focus:outline-white px-[4px]"
-                        />
+                    
+                    <div className="h-[5%] w-[90%] flex items-center justify-center rounded bg-black font-semibold">
+                        <div className="h-full w-1/4 flex items-center justify-center">Token</div>
+                        <div className="h-full w-1/4 flex items-center justify-center">Address</div>
+                        <div className="h-full w-1/4 flex items-center justify-center">Symbol</div>
+                        <div className="h-full w-1/4 flex items-center justify-center">Reserve</div>
                     </div>
-                    <button type="submit" className="h-auto w-auto p-[10px] rounded border-1 border-white bg-white text-black text-[90%] hover:opacity-70 cursor-pointer font-semibold">Create New Pool</button>
-                </form>
+                    <div className="h-[5%] w-[90%] flex items-center justify-center">
+                        <div className="h-full w-1/4 flex items-center justify-center">1</div>
+                        <div className="h-full w-1/4 flex items-center justify-center p-[2px]"><CopyButton address={tokens.find((token)=>token.tokenSymbol==sidePool?.token0)?.tokenAddress}/></div>
+                        <div className="h-full w-1/4 flex items-center justify-center">{sidePool?.token0}</div>
+                        <div className="h-full w-1/4 flex items-center justify-center">{sidePool?.reserve0}</div>
+                    </div>
+                    <div className="h-[5%] w-[90%] flex items-center justify-center">
+                        <div className="h-full w-1/4 flex items-center justify-center">2</div>
+                        <div className="h-full w-1/4 flex items-center justify-center p-[2px]"><CopyButton address={tokens.find((token)=>token.tokenSymbol==sidePool?.token1)?.tokenAddress}/></div>
+                        <div className="h-full w-1/4 flex items-center justify-center">{sidePool?.token1}</div>
+                        <div className="h-full w-1/4 flex items-center justify-center">{sidePool?.reserve1}</div>
+                    </div>
+                    
+                    <div className="h-[60%] w-full"></div>
+
+                    <div className="h-[10%] w-full flex items-center justify-center">
+                        <button onClick={()=>setIsSideOpen(false)} className="h-auto w-auto p-[10px] rounded border-1 border-white bg-white text-black text-[90%] hover:opacity-70 cursor-pointer font-semibold">Create New Pool</button>
+                    </div>
+                
+                
+                </>
+                :
+                <>
+                
+                
+                
+                    <div className="h-[10vh] w-full flex items-center justify-center text-[154%] font-semibold">Create New Pool</div>
+                    <form id="tokenForm" onSubmit={handleCreatePool} className="h-auto w-[90%] flex flex-col items-center justify-center gap-[2vh]">
+                        <div className="h-auto w-full flex flex-col items-center justify-center gap-[10px]">
+                            <div className="h-[] w-full flex items-center justify-center text-[120%]">Token 1 Address</div>
+                            <input
+                            type="text"
+                            id="token1"
+                            name="token1"
+                            placeholder="0x..."
+                            required
+                            pattern="0x[a-fA-F0-9]{40}"
+                            title="Enter a valid ERC20 token address"
+                            value={token1Address}
+                            onChange={(e) => setToken1Address(e.target.value)}
+                            className="h-[40px] w-full border-1 border-white rounded focus:outline-2 focus:outline-white px-[4px]"
+                            />
+                        </div>
+                        <div className="h-auto w-full flex flex-col items-center justify-center gap-[10px]">
+                            <div className="h-[] w-full flex items-center justify-center text-[120%]">Token 2 Address</div>
+                            <input
+                            type="text"
+                            id="token2"
+                            name="token2"
+                            placeholder="0x..."
+                            required
+                            pattern="0x[a-fA-F0-9]{40}"
+                            title="Enter a valid ERC20 token address"
+                            value={token2Address}
+                            onChange={(e) => setToken2Address(e.target.value)}
+                            className="h-[40px] w-full border-1 border-white rounded focus:outline-2 focus:outline-white px-[4px]"
+                            />
+                        </div>
+                        <button type="submit" className="h-auto w-auto p-[10px] rounded border-1 border-white bg-white text-black text-[90%] hover:opacity-70 cursor-pointer font-semibold">Create New Pool</button>
+                    </form>
+                </>}
             </div>
         </div>
     )
