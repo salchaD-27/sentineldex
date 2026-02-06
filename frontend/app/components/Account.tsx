@@ -191,11 +191,12 @@ export default function Account(){
                 
                 
                     {Number(sidePool?.lpTotalSupply)===0 && <div className="absolute top-[10px] right-[10px] h-auto w-auto p-[10px] text-[100%] font-semibold rounded border-2 border-white bg-green-700">Bootstrap</div>}
-                    <div className="h-[15%] w-full flex flex-col items-center justify-center text-[100%] font-semibold">
+                    <div className="h-[20%] w-full flex flex-col items-center justify-center text-[100%] font-semibold">
                         <span>Liquidity Pool</span>
                         <span className="text-[154%]">{sidePool?.lpTokenSymbol}</span>
                         <span>&nbsp;</span>
                         <span>Total Supply: {sidePool?.lpTotalSupply}</span>
+                        {Number(sidePool?.lpTotalSupply)!==0 && <span>{`Current Exchange: 1 ${sidePool?.token0} = ${Number(sidePool?.reserve0)/Number(sidePool?.reserve1)} ${sidePool?.token1}`}</span>}
                     </div>
                     
                     <div className="h-[5%] w-[90%] flex items-center justify-center rounded bg-black font-semibold">
@@ -217,7 +218,7 @@ export default function Account(){
                         <div className="h-full w-1/4 flex items-center justify-center">{sidePool?.reserve1}</div>
                     </div>
                     
-                    <div className="h-[60%] w-full"></div>
+                    <div className="h-[55%] w-full border-2 border-white"></div>
 
                     <div className="h-[10%] w-full flex items-center justify-center">
                         <button onClick={()=>setIsSideOpen(false)} className="h-auto w-auto p-[10px] rounded border-1 border-white bg-white text-black text-[90%] hover:opacity-70 cursor-pointer font-semibold">Create New Pool</button>
