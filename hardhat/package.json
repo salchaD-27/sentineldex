@@ -10,12 +10,17 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "hardhat": "^3.1.7"
+    "@openzeppelin/contracts": "^5.4.0",
+    "chai": "^6.2.2",
+    "hardhat": "^3.1.7",
+    "mocha": "^11.7.5"
   },
   "type": "module",
   "devDependencies": {
     "@nomicfoundation/hardhat-ignition": "^3.0.7",
     "@nomicfoundation/hardhat-toolbox-viem": "^5.0.2",
+    "@types/chai": "^5.2.3",
+    "@types/mocha": "^10.0.10",
     "@types/node": "^22.19.9",
     "forge-std": "github:foundry-rs/forge-std#v1.9.4",
     "typescript": "~5.8.0",
