@@ -69,8 +69,11 @@ router.post('/pools', async (req, res) => {
     const filter = contract.filters.PoolCreated();
     const events = await contract.queryFilter(filter, 0, "latest");
 
-    const pools = await Promise.all(events.map(async (event) => {
-        const poolContract = new ethers.Contract(event.args.pool, dexPoolAbi, provider);
+    const poolsRaw = await Promise.all(events.map(async (event) => {
+        const poolAddress = event.args?.pool;
+        if (!poolAddress) return null; // Skip events with missing pool address
+        
+        const poolContract = new ethers.Contract(poolAddress, dexPoolAbi, provider);
         const lpTokenAddr = await poolContract.lpTokenAddress();
         const lpToken = new ethers.Contract(lpTokenAddr, erc20Abi, provider);
         const [balance, totalSupply, symbol] = await Promise.all([
@@ -91,6 +94,8 @@ router.post('/pools', async (req, res) => {
             lpTotalSupply: totalSupply.toString(),
         };
     }));
+
+    const pools = poolsRaw.filter(Boolean);
 
     res.json({
       success: true,

@@ -23,6 +23,7 @@ interface Tokens{
 
 export default function Account(){
     const [open, setOpen] = useState<number>(1);
+    const [sideOpen, setSideOpen] = useState<string>('');
     const [pools, setPools] = useState<Pools[]>([]);
     const [tokens, setTokens] = useState<Tokens[]>([]);
     const [loading, setLoading] = useState(true);
@@ -97,6 +98,7 @@ export default function Account(){
                             <div className="h-full w-1/7 flex items-center justify-center">LP Token Symbol</div>
                             <div className="h-full w-1/7 flex items-center justify-center">Your Liquidity</div>
                             <div className="h-full w-1/7 flex items-center justify-center">%</div>
+                            <div className="h-full w-[10px] flex items-center justify-center"></div>
                         </div>
                         <div className="h-[90%] w-full flex flex-col items-center justify-start pt-[7px]">
                             {pools.map((pool, idx)=>(
@@ -107,7 +109,8 @@ export default function Account(){
                                     <div className="h-full w-1/7 flex items-center justify-center"><CopyButton address={pool.lpTokenAddress}/></div>
                                     <div className="h-full w-1/7 flex items-center justify-center">{pool.lpTokenSymbol}</div>
                                     <div className="h-full w-1/7 flex items-center justify-center">{Number(pool.balance)}</div>
-                                    <div className="h-full w-1/7 flex items-center justify-center">{Number(pool.balance)*100/Number(pool.lpTotalSupply)}</div>
+                                    <div className="h-full w-1/7 flex items-center justify-center">{Number(pool.lpTotalSupply) > 0 ? (Number(pool.balance) * 100 / Number(pool.lpTotalSupply)).toFixed(2) : '0.00'}</div>
+                                    <div onClick={()=>setSideOpen(pool.lpTokenSymbol)} className="h-1/2 w-[10px] flex items-center justify-center hover:opacity-70 cursor-pointer">►</div>
                                 </div>
                             ))}
                             {loading && <div className="h-full w-full flex items-center justify-center">
