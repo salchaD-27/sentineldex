@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import api from './routes/api.js';
+import liquidity from './routes/liquidity.js';
 import dotenv from 'dotenv'
 dotenv.config()
 
@@ -38,5 +39,10 @@ app.use(express.urlencoded({ extended: true }));
 // POST /api/wallet-balance
 // GET /api/fund
 app.use('/api', api)
+
+// POST /api/liquidity/add
+// POST /api/liquidity/remove
+// POST /api/liquidity/swap
+app.use('/api/liquidity', liquidity)
 
 app.listen(PORT, ()=>{console.log(`backend server running at http://localhost:${PORT}`)})

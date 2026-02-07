@@ -23,18 +23,26 @@ const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
 });
 
-const erc20Abi = [
+export const erc20Abi = [
   "function name() view returns (string)",
   "function symbol() view returns (string)",
+  "function decimals() view returns (uint8)",
   "function totalSupply() view returns (uint256)",
   "function balanceOf(address) view returns (uint256)",
-  "function decimals() view returns (uint8)"
+  "function allowance(address owner, address spender) view returns (uint256)",
+  "function approve(address spender, uint256 amount) returns (bool)",
+  "function transfer(address to, uint256 amount) returns (bool)",
+  "function transferFrom(address from, address to, uint256 amount) returns (bool)"
 ];
-const dexPoolAbi = [
+
+export const dexPoolAbi = [
   "function lpTokenAddress() view returns (address)",
   "function getReserves() view returns (uint256,uint256)",
   "function token0() view returns (address)",
-  "function token1() view returns (address)"
+  "function token1() view returns (address)",
+  "function addLiquidity(uint256,uint256)",
+  "function removeLiquidity(uint256)",
+  "function swap(address,uint256)"
 ];
 
 const __filename = fileURLToPath(import.meta.url);
@@ -52,10 +60,8 @@ const deployedArtifact = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
 
 
 const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
-const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
-console.log('-----', wallet.address);
-const contract = new ethers.Contract(deployedAddresses['DEXFactoryModule#DEXFactory'], deployedArtifact.abi, wallet);
-
+export const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
+export const contract = new ethers.Contract(deployedAddresses['DEXFactoryModule#DEXFactory'], deployedArtifact.abi, wallet);
 
 async function getTokenInfo(addr) {
   try {
