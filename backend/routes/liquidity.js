@@ -62,7 +62,7 @@ router.post('/add', async (req, res) => {
 router.post('/remove', async (req, res) => {
   try {
     await withLock(async () => {
-      const { poolAddress, liquidity } = req.body;
+      const { poolAddress, liquidity, amount0, amount1 } = req.body;
       
       const wallet = getWallet();
       const poolContract = new ethers.Contract(poolAddress, dexPoolAbi, wallet);
@@ -73,12 +73,32 @@ router.post('/remove', async (req, res) => {
       const lpTokenAddr = await poolContract.lpTokenAddress();
       const lpToken = new ethers.Contract(lpTokenAddr, erc20Abi, wallet);
       const lpBalance = await lpToken.balanceOf(wallet.address);
+      
+      // Get reserves
+      const [reserve0, reserve1] = await poolContract.getReserves();
+      const totalSupply = await lpToken.totalSupply();
 
-      if (BigInt(lpBalance) < BigInt(liquidity)) {
+      let liquidityToRemove;
+      if (liquidity) {
+        // If liquidity is provided directly (in Wei)
+        liquidityToRemove = BigInt(liquidity);
+      } else if (amount0 && amount1) {
+        // Calculate proportional liquidity from token amounts
+        const amount0Wei = ethers.parseEther(amount0.toString());
+        const amount1Wei = ethers.parseEther(amount1.toString());
+        // Calculate liquidity proportionally: min of (amount0/reserve0, amount1/reserve1) * totalSupply
+        const liquidity0 = (amount0Wei * totalSupply) / reserve0;
+        const liquidity1 = (amount1Wei * totalSupply) / reserve1;
+        liquidityToRemove = liquidity0 < liquidity1 ? liquidity0 : liquidity1;
+      } else {
+        throw new Error('Missing liquidity or amount0/amount1 parameters');
+      }
+
+      if (lpBalance < liquidityToRemove) {
         throw new Error('Insufficient LP balance');
       }
 
-      const tx = await poolContract.removeLiquidity(liquidity, { nonce });
+      const tx = await poolContract.removeLiquidity(liquidityToRemove, { nonce });
       await tx.wait();
     });
     res.json({ success: true });
@@ -91,7 +111,7 @@ router.post('/remove', async (req, res) => {
 router.post('/swap', async (req, res) => {
   try {
     await withLock(async () => {
-      const { poolAddress, tokenIn, amountIn } = req.body;
+      const { poolAddress, tokenIn, amountIn, amount } = req.body;
       
       const wallet = getWallet();
       const poolContract = new ethers.Contract(poolAddress, dexPoolAbi, wallet);
@@ -101,7 +121,7 @@ router.post('/swap', async (req, res) => {
 
       const token0Addr = await poolContract.token0();
       const token1Addr = await poolContract.token1();
-      const tokenInAddr = tokenIn.toLowerCase();
+      const tokenInAddr = (tokenIn || amount).toLowerCase();
 
       if (tokenInAddr !== token0Addr.toLowerCase() && tokenInAddr !== token1Addr.toLowerCase()) {
         throw new Error('Invalid token address');
@@ -109,7 +129,7 @@ router.post('/swap', async (req, res) => {
 
       const tokenInContract = new ethers.Contract(tokenInAddr, erc20Abi, wallet);
       const decimals = await tokenInContract.decimals();
-      const amountInWei = ethers.parseUnits(amountIn.toString(), decimals);
+      const amountInWei = ethers.parseUnits((amountIn || amount).toString(), decimals);
 
       const allowance = await tokenInContract.allowance(wallet.address, poolAddress);
       if (allowance < amountInWei) {
