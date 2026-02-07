@@ -35,6 +35,7 @@ app.use(express.urlencoded({ extended: true }));
 // POST /api/pools
 // POST /api/tokens
 // POST /api/create-pool
+// POST /api/wallet-balance
 app.use('/api', api)
 
 app.listen(PORT, ()=>{console.log(`backend server running at http://localhost:${PORT}`)})

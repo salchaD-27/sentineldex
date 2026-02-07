@@ -42,16 +42,18 @@ console.log('cwd:', process.cwd());
 console.log('__dirname:', __dirname);
 
 // const deployedAddressesPath = path.join(__dirname, '../../hardhat/ignition/deployments/chain-31337/deployed_addresses.json');
-const deployedAddressesPath = path.resolve(process.cwd(), '../hardhat/ignition/deployments/chain-31337/deployed_addresses.json');
+const deployedAddressesPath = path.resolve(__dirname, '../../hardhat/ignition/deployments/chain-31337/deployed_addresses.json');
 const deployedAddresses = JSON.parse(fs.readFileSync(deployedAddressesPath, 'utf8'));
 
 // const abiPath = path.join(__dirname, '../../../hardhat/artifacts/contracts/DEXFactory.sol/DEXFactory.json');
-const abiPath = path.resolve('../hardhat/artifacts/contracts/DEXFactory.sol/DEXFactory.json');
-const abi = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
+const abiPath = path.resolve(__dirname, '../../hardhat/ignition/deployments/chain-31337/artifacts/DEXFactoryModule#DEXFactory.json');
+const deployedArtifact = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
+
 
 const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
 const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
-const contract = new ethers.Contract(deployedAddresses['DEXFactoryModule#DEXFactory'], abi.abi, wallet);
+const contract = new ethers.Contract(deployedAddresses['DEXFactoryModule#DEXFactory'], deployedArtifact.abi, wallet);
+
 
 async function getTokenInfo(addr) {
   try {
@@ -67,7 +69,9 @@ async function getTokenInfo(addr) {
 
 router.post('/pools', async (req, res) => {
   try {
-    const { walletAddress } = req.body;
+    let { walletAddress } = req.body;
+    console.log('---------', walletAddress);
+    if (!walletAddress) walletAddress = ethers.ZeroAddress;
     const filter = contract.filters.PoolCreated();
     const events = await contract.queryFilter(filter, 0, "latest");
 
@@ -126,7 +130,7 @@ router.post('/pools', async (req, res) => {
     }));
 
     const pools = poolsRaw.filter(Boolean);
-
+    console.log(pools);
     res.json({
       success: true,
       pools
@@ -139,7 +143,9 @@ router.post('/pools', async (req, res) => {
 
 router.post('/tokens', async (req, res) => {
     try{
-        const { walletAddress } = req.body;
+        let { walletAddress } = req.body;
+        console.log('---------', walletAddress);
+        if (!walletAddress) walletAddress = ethers.ZeroAddress;
         const tokenDeployedAddresses = Object.entries(deployedAddresses).filter(([key, addr]) => key !== 'DEXFactoryModule#DEXFactory').map(([key, addr]) => addr);
         const tokens = await Promise.all(
             tokenDeployedAddresses.map(async (addr) => {
@@ -161,7 +167,7 @@ router.post('/tokens', async (req, res) => {
                 } catch {return null;}
             })
         );
-
+        console.log(tokens);
         res.json({ 
             success: true, 
             tokens: tokens.filter(Boolean),
@@ -202,6 +208,22 @@ router.post('/create-pool', async (req, res) => {
             token0: poolCreatedEvent.args.token0,
             token1: poolCreatedEvent.args.token1,
             txHash: tx.hash
+        });
+    }catch(err){
+        console.error(err);
+        res.status(500).json({ error: 'Server error: ' + err.message });
+    }
+})
+
+router.post('/wallet-balance', async (req, res) => {
+    try{
+        const { walletAddress } = req.body;
+        if (!ethers.isAddress(walletAddress)) return res.status(400).json({ error: 'Invalid wallet address' });
+        const balanceWei = await provider.getBalance(walletAddress);
+
+        res.json({
+            success: true,
+            balance: balanceWei.toString(),
         });
     }catch(err){
         console.error(err);

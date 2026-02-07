@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useEffect } from 'react';
 import {
   Connector,
   useAccount,
@@ -8,6 +8,7 @@ import {
   useConnect,
   useDisconnect,
   useSignMessage,
+  useSwitchChain,
 } from 'wagmi';
 import { Chain as ViemChain } from 'viem';
 
