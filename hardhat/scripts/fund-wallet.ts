@@ -1,6 +1,6 @@
 import { network } from "hardhat";
 
-async function main() {
+async function main(){
   const { viem } = await network.connect();
   const walletClient = await viem.getWalletClients();
   const signer = walletClient[0];

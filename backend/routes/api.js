@@ -13,6 +13,7 @@ import { Pool } from 'pg';
 import { ethers } from 'ethers';
 import fs from 'fs';
 import path from 'path';
+import { exec } from "child_process";
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 dotenv.config();
@@ -52,6 +53,7 @@ const deployedArtifact = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
 
 const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
 const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
+console.log('-----', wallet.address);
 const contract = new ethers.Contract(deployedAddresses['DEXFactoryModule#DEXFactory'], deployedArtifact.abi, wallet);
 
 
@@ -225,5 +227,27 @@ router.post('/wallet-balance', async (req, res) => {
         res.status(500).json({ error: 'Server error: ' + err.message });
     }
 })
+
+router.get("/fund", async (req, res) => {
+  try {
+    exec(`cd ../hardhat && npx hardhat run ./scripts/fund-wallet.ts --network localhost`, (error, stdout, stderr) => {
+      if (error) {
+        console.error("Execution error:", error);
+        return res.status(500).json({
+          success: false,
+          error: stderr || error.message,
+        });
+      }
+
+      res.json({
+        success: true,
+        output: stdout,
+      });
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 export default router;

@@ -80,8 +80,6 @@ export default function Account(){
                 body: JSON.stringify({ token1: token1Address, token2: token2Address }),
             });
             const data = await res.json();
-            console.log('Pool creation response:', data);
-            
             if (data.success) {
                 // Show live confirmation
                 setError(null);
@@ -99,7 +97,6 @@ export default function Account(){
                 if(!poolsRes.ok) throw new Error('Failed to fetch pools');
                 const { pools: newPools } = await poolsRes.json();
                 setPools(newPools);
-                console.log('Updated pools:', newPools);
             } else {
                 alert(`Error: ${data.error}`);
             }
