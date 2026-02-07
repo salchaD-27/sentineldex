@@ -30,9 +30,10 @@ export default function Account(){
 
     const [pools, setPools] = useState<Pools[]>([]);
     const [tokens, setTokens] = useState<Tokens[]>([]);
+    
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const {address} = useWallet();
+    const {address, walletBalance, fetchWalletBalance} = useWallet();
 
     const [token1Address, setToken1Address] = useState('');
     const [token2Address, setToken2Address] = useState('');
@@ -50,7 +51,6 @@ export default function Account(){
                 if(!poolsRes.ok) throw new Error('Failed to fetch pools');
                 const { pools } = await poolsRes.json();
                 setPools(pools);
-                console.log(pools);
 
                 const tokensRes = await fetch('http://localhost:3001/api/tokens', {
                     method: 'POST', headers: {'Content-Type':'application/json'},
@@ -67,7 +67,7 @@ export default function Account(){
             } finally {setLoading(false);}
         }
         fetchData();
-    }, []);
+    }, [address]);
 
     const handleCreatePool = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -81,15 +81,12 @@ export default function Account(){
             });
             const data = await res.json();
             if (data.success) {
-                // Show live confirmation
                 setError(null);
                 alert(`Pool created successfully!\nPool Address: ${data.pool}\nTx Hash: ${data.txHash}`);
                 
-                // Clear form
                 setToken1Address('');
                 setToken2Address('');
                 
-                // Refresh pools list
                 const poolsRes = await fetch('http://localhost:3001/api/pools', {
                     method: 'POST', headers: {'Content-Type':'application/json'},
                     body: JSON.stringify({walletAddress: address}) 
@@ -97,6 +94,8 @@ export default function Account(){
                 if(!poolsRes.ok) throw new Error('Failed to fetch pools');
                 const { pools: newPools } = await poolsRes.json();
                 setPools(newPools);
+                
+                fetchWalletBalance();
             } else {
                 alert(`Error: ${data.error}`);
             }
@@ -116,7 +115,7 @@ export default function Account(){
                     <button onClick={()=>{setOpen(1);setIsSideOpen(false)}} className="h-auto w-[100px] p-[10px] rounded border-1 border-white bg-white text-black text-[90%] hover:opacity-70 cursor-pointer">Tokens</button>
                 </div>
                 <div className="h-[90%] w-[90%] flex flex-col items-center justify-center">
-                    {open==0?(
+                    {open===0?(
                     <>
                         <div className="h-[10%] w-full flex items-center justify-center rounded bg-neutral-800 font-semibold">
                             <div className="h-full w-1/7 flex items-center justify-center">Pool Address</div>
@@ -158,7 +157,7 @@ export default function Account(){
                             <div className="h-full w-1/5 flex items-center justify-center">Balance</div>
                             <div className="h-full w-1/5 flex items-center justify-center">Total Supply (Gwei)</div>
                         </div>
-                        <div className="h-[90%] w-full flex flex-col items-center justify-start pt-[7px]">
+                        <div className="h-[90%] w-full flex flex-col items-center justify-start pt-[7px] overflow-y-auto">
                             {tokens.map((token, idx)=>(
                                 <div key={idx} className="h-[7%] w-full flex items-center justify-center">
                                     <div className="h-full w-1/5 flex items-center justify-center"><CopyButton address={token.tokenAddress as `0x${string}`}/></div>
@@ -180,13 +179,9 @@ export default function Account(){
                 </div>
             </div>
 
-
-
             <div className="relative h-[90%] w-[30%] flex flex-col items-center justify-start bg-neutral-800 rounded">
-                {isSideOpen?
+                {isSideOpen?(
                 <>
-                
-                
                     {Number(sidePool?.lpTotalSupply)===0 && <div className="absolute top-[10px] right-[10px] h-auto w-auto p-[10px] text-[100%] font-semibold rounded border-2 border-white bg-green-700">Bootstrap</div>}
                     <div className="h-[20%] w-full flex flex-col items-center justify-center text-[100%] font-semibold">
                         <span>Liquidity Pool</span>
@@ -204,13 +199,17 @@ export default function Account(){
                     </div>
                     <div className="h-[5%] w-[90%] flex items-center justify-center">
                         <div className="h-full w-1/4 flex items-center justify-center">1</div>
-                        <div className="h-full w-1/4 flex items-center justify-center p-[2px]"><CopyButton address={tokens.find((token)=>token.tokenSymbol==sidePool?.token0)?.tokenAddress}/></div>
+                        <div className="h-full w-1/4 flex items-center justify-center p-[2px]">
+                            <CopyButton address={tokens.find((token)=>token.tokenSymbol===sidePool?.token0)?.tokenAddress as `0x${string}` || "0x"}/>
+                        </div>
                         <div className="h-full w-1/4 flex items-center justify-center">{sidePool?.token0}</div>
                         <div className="h-full w-1/4 flex items-center justify-center">{sidePool?.reserve0}</div>
                     </div>
                     <div className="h-[5%] w-[90%] flex items-center justify-center">
                         <div className="h-full w-1/4 flex items-center justify-center">2</div>
-                        <div className="h-full w-1/4 flex items-center justify-center p-[2px]"><CopyButton address={tokens.find((token)=>token.tokenSymbol==sidePool?.token1)?.tokenAddress}/></div>
+                        <div className="h-full w-1/4 flex items-center justify-center p-[2px]">
+                            <CopyButton address={tokens.find((token)=>token.tokenSymbol===sidePool?.token1)?.tokenAddress as `0x${string}` || "0x"}/>
+                        </div>
                         <div className="h-full w-1/4 flex items-center justify-center">{sidePool?.token1}</div>
                         <div className="h-full w-1/4 flex items-center justify-center">{sidePool?.reserve1}</div>
                     </div>
@@ -220,14 +219,9 @@ export default function Account(){
                     <div className="h-[10%] w-full flex items-center justify-center">
                         <button onClick={()=>setIsSideOpen(false)} className="h-auto w-auto p-[10px] rounded border-1 border-white bg-white text-black text-[90%] hover:opacity-70 cursor-pointer font-semibold">Create New Pool</button>
                     </div>
-                
-                
                 </>
-                :
+                ):(
                 <>
-                
-                
-                
                     <div className="h-[10vh] w-full flex items-center justify-center text-[154%] font-semibold">Create New Pool</div>
                     <form id="tokenForm" onSubmit={handleCreatePool} className="h-auto w-[90%] flex flex-col items-center justify-center gap-[2vh]">
                         <div className="h-auto w-full flex flex-col items-center justify-center gap-[10px]">
@@ -262,7 +256,8 @@ export default function Account(){
                         </div>
                         <button type="submit" className="h-auto w-auto p-[10px] rounded border-1 border-white bg-white text-black text-[90%] hover:opacity-70 cursor-pointer font-semibold">Create New Pool</button>
                     </form>
-                </>}
+                </>
+                )}
             </div>
         </div>
     )

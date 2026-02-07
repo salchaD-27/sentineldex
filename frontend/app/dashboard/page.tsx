@@ -9,27 +9,12 @@ import { useConnection } from "wagmi";
 
 export default function Dashboard(){
     const router = useRouter();
-    const {isConnected, address, chain, disconnect} = useWallet();
+    const {isConnected, address, chain, disconnect, walletBalance, setWalletBalance} = useWallet();
     const [tabOpen, setTabOpen] = useState<number>(1);
-    const [walletBalance, setWalletBalance] = useState<string>("0");
 
     useEffect(()=>{
         if(!isConnected) router.push('/')
     }, [isConnected])
-
-    useEffect(()=>{
-        async function fetchBalance(){
-            const balanceRes = await fetch('http://localhost:3001/api/wallet-balance', {
-                method: 'POST', headers: {'Content-Type':'application/json'},
-                body: JSON.stringify({walletAddress: address})
-            });
-            if(balanceRes.ok) {
-                const { balance } = await balanceRes.json();
-                setWalletBalance(balance);
-            }
-        }
-        fetchBalance();
-    }, []);
 
     async function fund(){
         try{
@@ -49,7 +34,7 @@ export default function Dashboard(){
                     {/* <button onClick={()=>setTabOpen(1)} className="h-auto w-[100px] p-[10px] rounded border-1 border-white text-white text-[90%] hover:opacity-70 cursor-pointer">Account</button> */}
                     <div className="h-full w-auto flex flex-col items-end justify-center font-light mr-[10px] gap-[4px]">
                         <div className="h-auto w-full flex items-center justify-end">Balance (Local Hardhat):&nbsp;<span className="font-semibold text-indigo-500">{Number(walletBalance) > 0 ? (Number(walletBalance) / 10**18).toFixed(6) : '0.000000'} ETH</span></div>
-                        <button onClick={fund} className="h-auto w-auto py-[2px] px-[10px] flex items-center justify-center cursor-pointer hover:opacity-70 font-semibold border-1 border-white rounded">Fund Wallet&nbsp;<span className="text-green-600">(1000 ETH)</span></button>
+                        <button disabled={Number(walletBalance)>=1000} onClick={fund} className={`h-auto w-auto py-[2px] px-[10px] flex items-center justify-center font-semibold border-1 border-white rounded ${Number(walletBalance)>=1000?'disabled cursor-not-allowed, opacity-40':'cursor-pointer hover:opacity-70'}`}>Fund Wallet&nbsp;<span className="text-green-600">(1000 ETH)</span></button>
                     </div>
                     <CopyButton address={address}/>
                     <button onClick={()=>{disconnect();router.push('/')}} className="h-auto w-[100px] p-[10px] rounded border-1 border-white text-white text-[90%] hover:opacity-70 cursor-pointer">Disconnect</button>

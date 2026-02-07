@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import {
   Connector,
   useAccount,
@@ -25,6 +25,9 @@ type WalletContextType = {
   isConnecting: boolean;
   isConnected: boolean;
   connectors: readonly Connector[];
+  walletBalance: string;
+  setWalletBalance: (walletBalance: string) => void;
+  fetchWalletBalance: () => void;
   connect: (connector: Connector) => void;
   disconnect: () => void;
 };
@@ -38,6 +41,29 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const chainId = useChainId();
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
+  const [walletBalance, setWalletBalance] = useState<string>("0");
+
+  const fetchWalletBalance = async () => {
+    if (!address) return;
+    try {
+        const balanceRes = await fetch('http://localhost:3001/api/wallet-balance', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({walletAddress: address})
+        });
+        if(balanceRes.ok) {
+            const { balance } = await balanceRes.json();
+            setWalletBalance(balance);
+        }
+    } catch (err) {
+        console.error('Error fetching wallet balance:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchWalletBalance();
+    const interval = setInterval(fetchWalletBalance, 3000);
+    return () => clearInterval(interval);
+  }, [address]);
 
   // Add isAnchorChain safely
   const myChain: Chain | undefined = chain
@@ -53,6 +79,9 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         isConnecting,
         isConnected,
         connectors,
+        walletBalance,
+        setWalletBalance,
+        fetchWalletBalance,
         connect: (c) => connect({ connector: c }),
         disconnect
       }}
