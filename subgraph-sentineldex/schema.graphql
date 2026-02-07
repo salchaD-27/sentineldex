@@ -1,9 +1,9 @@
-type PoolCreated @entity(immutable: true) {
+type Pool @entity(immutable: true) {
   id: ID!
   token0: Bytes!
   token1: Bytes!
   pool: Bytes!
   blockNumber: BigInt!
-  blockTimestamp: BigInt!
+  createdAt: BigInt!
   transactionHash: Bytes!
 }

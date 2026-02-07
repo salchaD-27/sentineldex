@@ -41,7 +41,7 @@ services:
       ipfs: http://ipfs:5001
       ethereum: hardhat:http://host.docker.internal:8545
       GRAPH_LOG: info
-
+      
 volumes:
   pgdata:
   ipfsdata:

@@ -9,9 +9,10 @@ import {
   Bytes,
   BigInt,
   BigDecimal,
+  Int8,
 } from "@graphprotocol/graph-ts";
 
-export class PoolCreated extends Entity {
+export class Pool extends Entity {
   constructor(id: string) {
     super();
     this.set("id", Value.fromString(id));
@@ -19,24 +20,22 @@ export class PoolCreated extends Entity {
 
   save(): void {
     let id = this.get("id");
-    assert(id != null, "Cannot save PoolCreated entity without an ID");
+    assert(id != null, "Cannot save Pool entity without an ID");
     if (id) {
       assert(
         id.kind == ValueKind.STRING,
-        `Entities of type PoolCreated must have an ID of type String but the id '${id.displayData()}' is of type ${id.displayKind()}`,
+        `Entities of type Pool must have an ID of type String but the id '${id.displayData()}' is of type ${id.displayKind()}`,
       );
-      store.set("PoolCreated", id.toString(), this);
+      store.set("Pool", id.toString(), this);
     }
   }
 
-  static loadInBlock(id: string): PoolCreated | null {
-    return changetype<PoolCreated | null>(
-      store.get_in_block("PoolCreated", id),
-    );
+  static loadInBlock(id: string): Pool | null {
+    return changetype<Pool | null>(store.get_in_block("Pool", id));
   }
 
-  static load(id: string): PoolCreated | null {
-    return changetype<PoolCreated | null>(store.get("PoolCreated", id));
+  static load(id: string): Pool | null {
+    return changetype<Pool | null>(store.get("Pool", id));
   }
 
   get id(): string {
@@ -104,8 +103,8 @@ export class PoolCreated extends Entity {
     this.set("blockNumber", Value.fromBigInt(value));
   }
 
-  get blockTimestamp(): BigInt {
-    let value = this.get("blockTimestamp");
+  get createdAt(): BigInt {
+    let value = this.get("createdAt");
     if (!value || value.kind == ValueKind.NULL) {
       throw new Error("Cannot return null for a required field.");
     } else {
@@ -113,8 +112,8 @@ export class PoolCreated extends Entity {
     }
   }
 
-  set blockTimestamp(value: BigInt) {
-    this.set("blockTimestamp", Value.fromBigInt(value));
+  set createdAt(value: BigInt) {
+    this.set("createdAt", Value.fromBigInt(value));
   }
 
   get transactionHash(): Bytes {
