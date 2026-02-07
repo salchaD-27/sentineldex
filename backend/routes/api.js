@@ -1,13 +1,3 @@
-// const express = require('express');
-// const { Pool } = require('pg');
-// const { randomBytes } = require('crypto');
-// const { addMinutes } = require('date-fns');
-// const { ethers } = require('ethers');
-// const multer = require("multer");
-// const fs = require('fs');
-// const path = require('path');
-// const { fileURLToPath } = require('url');
-// require('dotenv').config();
 import express from 'express';
 import { Pool } from 'pg';
 import { ethers } from 'ethers';
@@ -47,21 +37,40 @@ export const dexPoolAbi = [
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-// console.log('cwd:', process.cwd());
-// console.log('__dirname:', __dirname);
 
-// const deployedAddressesPath = path.join(__dirname, '../../../hardhat/ignition/deployments/chain-31337/deployed_addresses.json');
 const deployedAddressesPath = path.resolve(process.cwd() , '../hardhat/ignition/deployments/chain-31337/deployed_addresses.json');
 const deployedAddresses = JSON.parse(fs.readFileSync(deployedAddressesPath, 'utf8'));
 
-// const abiPath = path.join(__dirname, '../../../hardhat/artifacts/contracts/DEXFactory.sol/DEXFactory.json');
 const abiPath = path.resolve(process.cwd() , '../hardhat/ignition/deployments/chain-31337/artifacts/DEXFactoryModule#DEXFactory.json');
 const deployedArtifact = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
 
+export const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
+export const WALLET_PRIVATE_KEY = process.env.WALLET_PRIVATE_KEY;
+export const DEX_FACTORY_ADDRESS = deployedAddresses['DEXFactoryModule#DEXFactory'];
 
-const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
-export const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
-export const contract = new ethers.Contract(deployedAddresses['DEXFactoryModule#DEXFactory'], deployedArtifact.abi, wallet);
+// Mutex for serializing all transactions to avoid nonce conflicts
+let nonceLock = Promise.resolve();
+
+export async function withLock(fn) {
+  const release = await nonceLock;
+  let releaseNext;
+  nonceLock = new Promise(resolve => { releaseNext = resolve; });
+  try {
+    return await fn();
+  } finally {
+    releaseNext();
+  }
+}
+
+// Get wallet with fresh nonce inside the lock
+export function getWallet() {
+  return new ethers.Wallet(WALLET_PRIVATE_KEY, provider);
+}
+
+async function getDexFactory() {
+  const wallet = getWallet();
+  return new ethers.Contract(DEX_FACTORY_ADDRESS, deployedArtifact.abi, wallet);
+}
 
 async function getTokenInfo(addr) {
   try {
@@ -78,11 +87,11 @@ async function getTokenInfo(addr) {
 router.post('/pools', async (req, res) => {
   try {
     let { walletAddress } = req.body;
-    const filter = contract.filters.PoolCreated();
-    const events = await contract.queryFilter(filter, 0, "latest");
+    const dexFactory = await getDexFactory();
+    const filter = dexFactory.filters.PoolCreated();
+    const events = await dexFactory.queryFilter(filter, 0, "latest");
 
     const poolsRaw = await Promise.all(events.map(async (event) => {
-        // Check if event and args exist
         if (!event || !event.args) {
             console.warn('Skipping event with missing args:', event);
             return null;
@@ -92,7 +101,6 @@ router.post('/pools', async (req, res) => {
         const token0Address = event.args.token0;
         const token1Address = event.args.token1;
         
-        // Skip if any required address is missing or invalid
         if (!poolAddress || !token0Address || !token1Address) {
             console.warn('Skipping event with missing addresses:', { poolAddress, token0Address, token1Address });
             return null;
@@ -183,34 +191,43 @@ router.post('/tokens', async (req, res) => {
 
 router.post('/create-pool', async (req, res) => {
     try{
-        const { token1, token2 } = req.body;
-        if (!ethers.isAddress(token1) || !ethers.isAddress(token2)) return res.status(400).json({ error: 'Invalid token address' });
+        await withLock(async () => {
+            const { token1, token2 } = req.body;
+            if (!ethers.isAddress(token1) || !ethers.isAddress(token2)) return res.status(400).json({ error: 'Invalid token address' });
 
-        const [tokenA, tokenB] = token1.toLowerCase() < token2.toLowerCase() ? [token1, token2] : [token2, token1];
-        const existingPool = await contract.pools(tokenA, tokenB);
-        if (existingPool !== ethers.ZeroAddress) return res.status(400).json({ error: 'Pool already exists', pool: existingPool });
+            const [tokenA, tokenB] = token1.toLowerCase() < token2.toLowerCase() ? [token1, token2] : [token2, token1];
+            const dexFactory = await getDexFactory();
+            
+            // Get fresh nonce for this transaction
+            const wallet = getWallet();
+            const walletWithNonce = new ethers.Contract(DEX_FACTORY_ADDRESS, deployedArtifact.abi, wallet);
+            const nonce = await provider.getTransactionCount(wallet.address, "latest");
+            
+            const existingPool = await walletWithNonce.pools(tokenA, tokenB);
+            if (existingPool !== ethers.ZeroAddress) return res.status(400).json({ error: 'Pool already exists', pool: existingPool });
 
-        const tx = await contract.createPool(tokenA, tokenB);
-        const receipt = await tx.wait();
+            const tx = await walletWithNonce.createPool(tokenA, tokenB, { nonce });
+            const receipt = await tx.wait();
 
-        let poolCreatedEvent;
-        for (const log of receipt.logs) {
-            try {
-                const parsed = contract.interface.parseLog(log);
-                if (parsed.name === "PoolCreated") {
-                    poolCreatedEvent = parsed;
-                    break;
-                }
-            } catch {}
-        }
-        if (!poolCreatedEvent)throw new Error("PoolCreated event not found");
+            let poolCreatedEvent;
+            for (const log of receipt.logs) {
+                try {
+                    const parsed = walletWithNonce.interface.parseLog(log);
+                    if (parsed.name === "PoolCreated") {
+                        poolCreatedEvent = parsed;
+                        break;
+                    }
+                } catch {}
+            }
+            if (!poolCreatedEvent)throw new Error("PoolCreated event not found");
 
-        res.json({
-            success: true,
-            pool: poolCreatedEvent.args.pool,
-            token0: poolCreatedEvent.args.token0,
-            token1: poolCreatedEvent.args.token1,
-            txHash: tx.hash
+            return res.json({
+                success: true,
+                pool: poolCreatedEvent.args.pool,
+                token0: poolCreatedEvent.args.token0,
+                token1: poolCreatedEvent.args.token1,
+                txHash: tx.hash
+            });
         });
     }catch(err){
         console.error(err);
@@ -257,3 +274,4 @@ router.get("/fund", async (req, res) => {
 });
 
 export default router;
+

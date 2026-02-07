@@ -134,7 +134,16 @@ export default function Account(){
         e.preventDefault();
         if (!token1RemoveAmount || !token2RemoveAmount) return;
         try{
-
+            const res = await fetch('http://localhost:3001/api/liquidity/remove', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({
+                    poolAddress: sidePool?.pool,
+                    amount0: token1RemoveAmount, 
+                    amount1: token2RemoveAmount
+                }) 
+            })
+            if(!res.ok) throw new Error('Failed to remove liquidity');
+            alert(`Liqudity removed successfully from pool: ${sidePool?.pool}`);
         }catch{}
     }
     
@@ -142,7 +151,15 @@ export default function Account(){
         e.preventDefault();
         if (!token1SwapAmount && !token2SwapAmount) return;
         try{
-
+            const res = await fetch('http://localhost:3001/api/liquidity/swap', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({
+                    poolAddress: sidePool?.pool,
+                    amount: token1SwapAmount || token2SwapAmount,
+                }) 
+            })
+            if(!res.ok) throw new Error('Failed to swap liquidity');
+            alert(`Liqudity swapped successfully in pool: ${sidePool?.pool}`);
         }catch{}
     }
 
