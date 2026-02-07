@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import CopyButton from "./CopyButton";
 import { useWallet } from "../context/WalletContext";
 
@@ -44,27 +44,59 @@ export default function Account(){
     const [token1SwapAmount, setToken1SwapAmount] = useState('');
     const [token2SwapAmount, setToken2SwapAmount] = useState('');
     
+    const [isOperationPending, setIsOperationPending] = useState(false);
+    const [operationSuccess, setOperationSuccess] = useState<string | null>(null);
+    const [operationError, setOperationError] = useState<string | null>(null);
+
+    useEffect(()=>{
+        setTimeout(()=>{
+            setOperationSuccess(null);
+            setOperationError(null);
+        }, 2000)
+    }, [operationSuccess, operationError])
+
+    // Fetch pools data
+    const fetchPools = useCallback(async () => {
+        try {
+            const poolsRes = await fetch('http://localhost:3001/api/pools', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({walletAddress: address}) 
+            });
+            if(!poolsRes.ok) throw new Error('Failed to fetch pools');
+            const { pools } = await poolsRes.json();
+            setPools(pools);
+        } catch (err) {
+            console.error('Error fetching pools:', err);
+        }
+    }, [address]);
+
+    // Fetch tokens data
+    const fetchTokens = useCallback(async () => {
+        try {
+            const tokensRes = await fetch('http://localhost:3001/api/tokens', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({walletAddress: address})
+            });
+            if(!tokensRes.ok) throw new Error('Failed to fetch tokens');
+            const { tokens } = await tokensRes.json();
+            setTokens(tokens);
+        } catch (err) {
+            console.error('Error fetching tokens:', err);
+        }
+    }, [address]);
+
+    // Refresh all data
+    const refreshData = useCallback(async () => {
+        await Promise.all([fetchPools(), fetchTokens()]);
+    }, [fetchPools, fetchTokens]);
+
+    // Initial data fetch and polling for live updates
     useEffect(() => {
         async function fetchData() {
             try {
                 setLoading(true);
                 setError(null);
-
-                const poolsRes = await fetch('http://localhost:3001/api/pools', {
-                    method: 'POST', headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({walletAddress: address}) 
-                });
-                if(!poolsRes.ok) throw new Error('Failed to fetch pools');
-                const { pools } = await poolsRes.json();
-                setPools(pools);
-
-                const tokensRes = await fetch('http://localhost:3001/api/tokens', {
-                    method: 'POST', headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({walletAddress: address})
-                });
-                if(!tokensRes.ok) throw new Error('Failed to fetch tokens');
-                const { tokens } = await tokensRes.json();
-                setTokens(tokens);
+                await refreshData();
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Failed to fetch data');
                 console.error('Fetch error:', err);
@@ -73,94 +105,159 @@ export default function Account(){
             } finally {setLoading(false);}
         }
         fetchData();
-    }, [address]);
+
+        // Poll every 3 seconds for live updates
+        const pollInterval = setInterval(() => {
+            refreshData();
+        }, 3000);
+
+        return () => clearInterval(pollInterval);
+    }, [address, refreshData]);
+
+    // Update side pool data when pools change
+    useEffect(() => {
+        if (sidePool && pools.length > 0) {
+            const updatedPool = pools.find(p => p.pool === sidePool.pool);
+            if (updatedPool) {
+                setSidePool(updatedPool);
+            }
+        }
+    }, [pools, sidePool?.pool]);
 
     const handleCreatePool = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!token1Address || !token2Address) return;
+        
+        setIsOperationPending(true);
+        setOperationSuccess(null);
+        setOperationError(null);
+        
         try {
-            setLoading(true);
-            setError(null);
             const res = await fetch('http://localhost:3001/api/create-pool', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ token1: token1Address, token2: token2Address }),
             });
             const data = await res.json();
             if (data.success) {
-                setError(null);
-                alert(`Pool created successfully!\nPool Address: ${data.pool}\nTx Hash: ${data.txHash}`);
-                
+                setOperationSuccess(`Pool created successfully!\nPool: ${data.pool}\nTx: ${data.txHash}`);
                 setToken1Address('');
                 setToken2Address('');
-                
-                const poolsRes = await fetch('http://localhost:3001/api/pools', {
-                    method: 'POST', headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({walletAddress: address}) 
-                });
-                if(!poolsRes.ok) throw new Error('Failed to fetch pools');
-                const { pools: newPools } = await poolsRes.json();
-                setPools(newPools);
-                
+                await refreshData();
                 fetchWalletBalance();
             } else {
-                alert(`Error: ${data.error}`);
+                setOperationError(data.error || 'Failed to create pool');
             }
         } catch (err) {
             console.error('Error creating pool:', err);
-            alert('Failed to create pool. Please try again.');
+            setOperationError('Failed to create pool. Please try again.');
         } finally {
-            setLoading(false);
+            setIsOperationPending(false);
         }
     };
 
     const handleAddLiquidity = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!token1AddAmount || !token2AddAmount) return;
+        if (!token1AddAmount || !token2AddAmount || !sidePool?.pool) return;
+        
+        setIsOperationPending(true);
+        setOperationSuccess(null);
+        setOperationError(null);
+        
         try{
             const res = await fetch('http://localhost:3001/api/liquidity/add', {
                 method: 'POST', headers: {'Content-Type':'application/json'},
                 body: JSON.stringify({
-                    poolAddress: sidePool?.pool,
+                    poolAddress: sidePool.pool,
                     amount0: token1AddAmount, 
                     amount1: token2AddAmount
                 }) 
-            })
-            if(!res.ok) throw new Error('Failed to add liquidity');
-            alert(`Liqudity added successfully to pool: ${sidePool?.pool}`);
-        }catch(err){console.error('Error creating pool:', err);}
+            });
+            const data = await res.json();
+            if (data.success) {
+                setOperationSuccess(`Liquidity added successfully to pool: ${sidePool.pool}`);
+                setToken1AddAmount('');
+                setToken2AddAmount('');
+                await refreshData();
+                fetchWalletBalance();
+            } else {
+                setOperationError(data.error || 'Failed to add liquidity');
+            }
+        }catch(err){
+            console.error('Error adding liquidity:', err);
+            setOperationError('Failed to add liquidity. Please try again.');
+        } finally {
+            setIsOperationPending(false);
+        }
     }
     
     const handleRemoveLiquidity = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!token1RemoveAmount || !token2RemoveAmount) return;
+        if (!token1RemoveAmount || !token2RemoveAmount || !sidePool?.pool) return;
+        
+        setIsOperationPending(true);
+        setOperationSuccess(null);
+        setOperationError(null);
+        
         try{
             const res = await fetch('http://localhost:3001/api/liquidity/remove', {
                 method: 'POST', headers: {'Content-Type':'application/json'},
                 body: JSON.stringify({
-                    poolAddress: sidePool?.pool,
+                    poolAddress: sidePool.pool,
                     amount0: token1RemoveAmount, 
                     amount1: token2RemoveAmount
                 }) 
-            })
-            if(!res.ok) throw new Error('Failed to remove liquidity');
-            alert(`Liqudity removed successfully from pool: ${sidePool?.pool}`);
-        }catch{}
+            });
+            const data = await res.json();
+            if (data.success) {
+                setOperationSuccess(`Liquidity removed successfully from pool: ${sidePool.pool}`);
+                setToken1RemoveAmount('');
+                setToken2RemoveAmount('');
+                await refreshData();
+                fetchWalletBalance();
+            } else {
+                setOperationError(data.error || 'Failed to remove liquidity');
+            }
+        }catch(err){
+            console.error('Error removing liquidity:', err);
+            setOperationError('Failed to remove liquidity. Please try again.');
+        } finally {
+            setIsOperationPending(false);
+        }
     }
     
     const handleSwap = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!token1SwapAmount && !token2SwapAmount) return;
+        if ((!token1SwapAmount && !token2SwapAmount) || !sidePool?.pool) return;
+        
+        setIsOperationPending(true);
+        setOperationSuccess(null);
+        setOperationError(null);
+        
         try{
             const res = await fetch('http://localhost:3001/api/liquidity/swap', {
                 method: 'POST', headers: {'Content-Type':'application/json'},
                 body: JSON.stringify({
-                    poolAddress: sidePool?.pool,
+                    poolAddress: sidePool.pool,
                     amount: token1SwapAmount || token2SwapAmount,
+                    tokenIn: token1SwapAmount ? tokens.find(t => t.tokenSymbol === sidePool?.token0)?.tokenAddress : tokens.find(t => t.tokenSymbol === sidePool?.token1)?.tokenAddress
                 }) 
-            })
-            if(!res.ok) throw new Error('Failed to swap liquidity');
-            alert(`Liqudity swapped successfully in pool: ${sidePool?.pool}`);
-        }catch{}
+            });
+            const data = await res.json();
+            if (data.success) {
+                setOperationSuccess(`Swap successful in pool: ${sidePool.pool}`);
+                setToken1SwapAmount('');
+                setToken2SwapAmount('');
+                await refreshData();
+                fetchWalletBalance();
+            } else {
+                setOperationError(data.error || 'Failed to swap');
+            }
+        }catch(err){
+            console.error('Error swapping:', err);
+            setOperationError('Failed to swap. Please try again.');
+        } finally {
+            setIsOperationPending(false);
+        }
     }
 
     return(
@@ -287,6 +384,7 @@ export default function Account(){
                                         name="token1"
                                         placeholder="amount"
                                         required
+                                        disabled={isOperationPending}
                                         value={token1AddAmount}
                                         onChange={(e) => setToken1AddAmount(e.target.value)}
                                         className="h-[40px] w-full border-1 border-white rounded focus:outline-2 focus:outline-white px-[4px]"
@@ -300,13 +398,14 @@ export default function Account(){
                                         name="token2"
                                         placeholder="amount"
                                         required
+                                        disabled={isOperationPending}
                                         value={token2AddAmount}
                                         onChange={(e) => setToken2AddAmount(e.target.value)}
                                         className="h-[40px] w-full border-1 border-white rounded focus:outline-2 focus:outline-white px-[4px]"
                                         />
                                     </div>
                                 </div>
-                                <button type="submit" className="h-full w-1/3 p-[10px] rounded border-1 border-white bg-white text-black text-[90%] hover:opacity-70 cursor-pointer font-semibold">Add Liquidity</button>
+                                <button type="submit" disabled={isOperationPending} className="h-full w-1/3 p-[10px] rounded border-1 border-white bg-white text-black text-[90%] hover:opacity-70 cursor-pointer font-semibold disabled:opacity-50">Add Liquidity</button>
                             </form>
                         </div>
 
@@ -322,6 +421,7 @@ export default function Account(){
                                         name="token1"
                                         placeholder="amount"
                                         required
+                                        disabled={isOperationPending}
                                         value={token1RemoveAmount}
                                         onChange={(e) => setToken1RemoveAmount(e.target.value)}
                                         className="h-[40px] w-full border-1 border-white rounded focus:outline-2 focus:outline-white px-[4px]"
@@ -335,13 +435,14 @@ export default function Account(){
                                         name="token2"
                                         placeholder="amount"
                                         required
+                                        disabled={isOperationPending}
                                         value={token2RemoveAmount}
                                         onChange={(e) => setToken2RemoveAmount(e.target.value)}
                                         className="h-[40px] w-full border-1 border-white rounded focus:outline-2 focus:outline-white px-[4px]"
                                         />
                                     </div>
                                 </div>
-                                <button type="submit" className="h-full w-1/3 p-[10px] rounded border-1 border-white bg-white text-black text-[90%] hover:opacity-70 cursor-pointer font-semibold">Remove Liquidity</button>
+                                <button type="submit" disabled={isOperationPending} className="h-full w-1/3 p-[10px] rounded border-1 border-white bg-white text-black text-[90%] hover:opacity-70 cursor-pointer font-semibold disabled:opacity-50">Remove Liquidity</button>
                             </form>
                         </div>
                         
@@ -357,7 +458,7 @@ export default function Account(){
                                         name="token1"
                                         placeholder="amount"
                                         required
-                                        disabled={token2SwapAmount!==''}
+                                        disabled={isOperationPending || token2SwapAmount!==''}
                                         value={token1SwapAmount}
                                         onChange={(e) => setToken1SwapAmount(e.target.value)}
                                         className={`h-[40px] w-full border-1 border-white rounded focus:outline-2 focus:outline-white px-[4px] ${token2SwapAmount?'opacity-40 cursor-not-allowed':''}`}
@@ -371,20 +472,31 @@ export default function Account(){
                                         name="token2"
                                         placeholder="amount"
                                         required
-                                        disabled={token1SwapAmount!==''}
+                                        disabled={isOperationPending || token1SwapAmount!==''}
                                         value={token2SwapAmount}
                                         onChange={(e) => setToken2SwapAmount(e.target.value)}
                                         className={`h-[40px] w-full border-1 border-white rounded focus:outline-2 focus:outline-white px-[4px] ${token1SwapAmount?'opacity-40 cursor-not-allowed':''}`}
                                         />
                                     </div>
                                 </div>
-                                <button type="submit" className="h-full w-1/3 p-[10px] rounded border-1 border-white bg-white text-black text-[90%] hover:opacity-70 cursor-pointer font-semibold">Swap</button>
+                                <button type="submit" disabled={isOperationPending} className="h-full w-1/3 p-[10px] rounded border-1 border-white bg-white text-black text-[90%] hover:opacity-70 cursor-pointer font-semibold disabled:opacity-50">Swap</button>
                             </form>
                         </div>
 
                         <div className="h-[9.5%] w-full"></div>
                     </div>
 
+                    {/* Success/Error Messages */}
+                    {operationSuccess && (
+                        <div className="absolute bottom-[60px] left-1/2 transform -translate-x-1/2 h-auto w-[90%] p-3 bg-green-700 text-white text-sm rounded border border-green-400 break-words">
+                            {operationSuccess}
+                        </div>
+                    )}
+                    {operationError && (
+                        <div className="absolute bottom-[60px] left-1/2 transform -translate-x-1/2 h-auto w-[90%] p-3 bg-red-600 text-white text-sm rounded border border-red-400 break-words">
+                            {operationError}
+                        </div>
+                    )}
 
                     <div className="h-[10%] w-[90%] flex items-center justify-center border-t-1 border-white">
                         <button onClick={()=>setIsSideOpen(false)} className="h-auto w-auto p-[10px] rounded border-1 border-white bg-white text-black text-[90%] hover:opacity-70 cursor-pointer font-semibold">Create New Pool</button>
@@ -404,6 +516,7 @@ export default function Account(){
                             required
                             pattern="0x[a-fA-F0-9]{40}"
                             title="Enter a valid ERC20 token address"
+                            disabled={isOperationPending}
                             value={token1Address}
                             onChange={(e) => setToken1Address(e.target.value)}
                             className="h-[40px] w-full border-1 border-white rounded focus:outline-2 focus:outline-white px-[4px]"
@@ -419,13 +532,26 @@ export default function Account(){
                             required
                             pattern="0x[a-fA-F0-9]{40}"
                             title="Enter a valid ERC20 token address"
+                            disabled={isOperationPending}
                             value={token2Address}
                             onChange={(e) => setToken2Address(e.target.value)}
                             className="h-[40px] w-full border-1 border-white rounded focus:outline-2 focus:outline-white px-[4px]"
                             />
                         </div>
-                        <button type="submit" className="h-auto w-auto p-[10px] rounded border-1 border-white bg-white text-black text-[90%] hover:opacity-70 cursor-pointer font-semibold">Create New Pool</button>
+                        <button type="submit" disabled={isOperationPending} className="h-auto w-auto p-[10px] rounded border-1 border-white bg-white text-black text-[90%] hover:opacity-70 cursor-pointer font-semibold disabled:opacity-50">Create New Pool</button>
                     </form>
+                    
+                    {/* Success/Error Messages */}
+                    {operationSuccess && (
+                        <div className="absolute bottom-[20px] left-1/2 transform -translate-x-1/2 h-auto w-[90%] p-3 bg-green-700 text-white text-sm rounded border border-green-400 break-words">
+                            {operationSuccess}
+                        </div>
+                    )}
+                    {operationError && (
+                        <div className="absolute bottom-[20px] left-1/2 transform -translate-x-1/2 h-auto w-[90%] p-3 bg-red-700 text-white text-sm rounded border border-red-400 break-words">
+                            {operationError}
+                        </div>
+                    )}
                 </>
                 )}
             </div>
