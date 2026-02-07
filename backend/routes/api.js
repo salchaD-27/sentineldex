@@ -38,15 +38,15 @@ const dexPoolAbi = [
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-console.log('cwd:', process.cwd());
-console.log('__dirname:', __dirname);
+// console.log('cwd:', process.cwd());
+// console.log('__dirname:', __dirname);
 
-// const deployedAddressesPath = path.join(__dirname, '../../hardhat/ignition/deployments/chain-31337/deployed_addresses.json');
-const deployedAddressesPath = path.resolve(__dirname, '../../hardhat/ignition/deployments/chain-31337/deployed_addresses.json');
+// const deployedAddressesPath = path.join(__dirname, '../../../hardhat/ignition/deployments/chain-31337/deployed_addresses.json');
+const deployedAddressesPath = path.resolve(process.cwd() , '../hardhat/ignition/deployments/chain-31337/deployed_addresses.json');
 const deployedAddresses = JSON.parse(fs.readFileSync(deployedAddressesPath, 'utf8'));
 
 // const abiPath = path.join(__dirname, '../../../hardhat/artifacts/contracts/DEXFactory.sol/DEXFactory.json');
-const abiPath = path.resolve(__dirname, '../../hardhat/ignition/deployments/chain-31337/artifacts/DEXFactoryModule#DEXFactory.json');
+const abiPath = path.resolve(process.cwd() , '../hardhat/ignition/deployments/chain-31337/artifacts/DEXFactoryModule#DEXFactory.json');
 const deployedArtifact = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
 
 
@@ -70,8 +70,6 @@ async function getTokenInfo(addr) {
 router.post('/pools', async (req, res) => {
   try {
     let { walletAddress } = req.body;
-    console.log('---------', walletAddress);
-    if (!walletAddress) walletAddress = ethers.ZeroAddress;
     const filter = contract.filters.PoolCreated();
     const events = await contract.queryFilter(filter, 0, "latest");
 
@@ -130,7 +128,7 @@ router.post('/pools', async (req, res) => {
     }));
 
     const pools = poolsRaw.filter(Boolean);
-    console.log(pools);
+
     res.json({
       success: true,
       pools
@@ -144,8 +142,6 @@ router.post('/pools', async (req, res) => {
 router.post('/tokens', async (req, res) => {
     try{
         let { walletAddress } = req.body;
-        console.log('---------', walletAddress);
-        if (!walletAddress) walletAddress = ethers.ZeroAddress;
         const tokenDeployedAddresses = Object.entries(deployedAddresses).filter(([key, addr]) => key !== 'DEXFactoryModule#DEXFactory').map(([key, addr]) => addr);
         const tokens = await Promise.all(
             tokenDeployedAddresses.map(async (addr) => {
@@ -167,7 +163,6 @@ router.post('/tokens', async (req, res) => {
                 } catch {return null;}
             })
         );
-        console.log(tokens);
         res.json({ 
             success: true, 
             tokens: tokens.filter(Boolean),
