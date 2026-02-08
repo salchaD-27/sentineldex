@@ -1,4 +1,4 @@
-import { BigInt, Bytes } from "@graphprotocol/graph-ts";
+import { BigInt, Bytes, ethereum, Address } from "@graphprotocol/graph-ts";
 import { PoolCreated as PoolCreatedEvent } from "../generated/DEXFactory/DEXFactory";
 import { Pool, Token, User } from "../generated/schema";
 
@@ -17,21 +17,26 @@ function getUser(address: Bytes): User {
   return user;
 }
 
-// Helper to get or create token and return its ID
-function getTokenId(address: Bytes): string {
+// Helper to fetch token data based on address
+function fetchTokenData(address: Bytes): Token {
   let id = address.toHex();
   let token = Token.load(id);
+
   if (!token) {
     token = new Token(id);
     token.address = address;
-    // These would be populated from contract calls in a full implementation
+
+    // Default values - metadata will be empty until manually set or fetched separately
+    // This avoids gas limit issues on local Hardhat network
     token.symbol = "";
     token.name = "";
-    token.decimals = BigInt.fromI32(0);
+    token.decimals = BigInt.fromI32(18); // Default to 18 decimals
     token.totalSupply = BigInt.fromI32(0);
+    
     token.save();
   }
-  return id;
+
+  return token;
 }
 
 // PoolCreated handler
@@ -43,11 +48,11 @@ export function handlePoolCreated(event: PoolCreatedEvent): void {
     pool = new Pool(poolId);
     pool.address = event.params.pool;
 
-    // Set token references (store ID strings, not Token objects)
-    let token0Id = getTokenId(event.params.token0);
-    let token1Id = getTokenId(event.params.token1);
-    pool.token0 = token0Id;
-    pool.token1 = token1Id;
+    // Set token references (fetch and store token data)
+    let token0 = fetchTokenData(event.params.token0);
+    let token1 = fetchTokenData(event.params.token1);
+    pool.token0 = token0.id;
+    pool.token1 = token1.id;
 
     // Initialize reserves and supply
     pool.reserve0 = BigInt.fromI32(0);

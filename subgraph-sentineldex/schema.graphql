@@ -1,4 +1,4 @@
-type Token @entity(immutable: true) {
+type Token @entity(immutable: false) {
   id: ID!
   address: Bytes!
   symbol: String!
@@ -7,7 +7,7 @@ type Token @entity(immutable: true) {
   totalSupply: BigInt!
 }
 
-type Pool @entity(immutable: true) {
+type Pool @entity(immutable: false) {
   id: ID!
   address: Bytes!
   token0: Token!
@@ -25,7 +25,7 @@ type User @entity(immutable: true) {
   address: Bytes!
 }
 
-type LiquidityPosition @entity(immutable: true) {
+type LiquidityPosition @entity(immutable: false) {
   id: ID!
   user: User!
   pool: Pool!
