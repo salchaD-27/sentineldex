@@ -1,9 +1,61 @@
+type Token @entity(immutable: true) {
+  id: ID!
+  address: Bytes!
+  symbol: String!
+  name: String!
+  decimals: BigInt!
+  totalSupply: BigInt!
+}
+
 type Pool @entity(immutable: true) {
   id: ID!
-  token0: Bytes!
-  token1: Bytes!
-  pool: Bytes!
-  blockNumber: BigInt!
+  address: Bytes!
+  token0: Token!
+  token1: Token!
+  reserve0: BigInt!
+  reserve1: BigInt!
+  totalSupply: BigInt!
+  fee: BigInt!
   createdAt: BigInt!
-  transactionHash: Bytes!
+  createdAtBlock: BigInt!
 }
+
+type User @entity(immutable: true) {
+  id: ID!
+  address: Bytes!
+}
+
+type LiquidityPosition @entity(immutable: true) {
+  id: ID!
+  user: User!
+  pool: Pool!
+  liquidityTokenBalance: BigInt!
+  token0Amount: BigInt!
+  token1Amount: BigInt!
+  createdAt: BigInt!
+  updatedAt: BigInt!
+}
+
+type Swap @entity(immutable: true) {
+  id: ID!
+  user: User!
+  pool: Pool!
+  tokenIn: Token!
+  tokenOut: Token!
+  amountIn: BigInt!
+  amountOut: BigInt!
+  fee: BigInt!
+  timestamp: BigInt!
+}
+
+type LiquidityChange @entity(immutable: true) {
+  id: ID!
+  user: User!
+  pool: Pool!
+  type: String!
+  token0Amount: BigInt!
+  token1Amount: BigInt!
+  liquidityAmount: BigInt!
+  timestamp: BigInt!
+}
+

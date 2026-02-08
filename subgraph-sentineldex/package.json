@@ -4,9 +4,9 @@
   "scripts": {
     "codegen": "graph codegen",
     "build": "graph build",
-   "deploy": "graph deploy --node http://localhost:8020 --ipfs http://localhost:5001 subgraph-sentineldex --version-label v1",
-    "create-local": "graph create --node http://localhost:8020",
-    "remove-local": "graph remove --node http://localhost:8020"
+    "deploy": "graph deploy --node http://localhost:8020 --ipfs http://localhost:5001 subgraph-sentineldex --version-label v1",
+    "create-local": "graph create --node http://localhost:8020 subgraph-sentineldex",
+    "remove-local": "graph remove --node http://localhost:8020 subgraph-sentineldex"
   },
   "dependencies": {
     "@graphprotocol/graph-cli": "0.67.1",
