@@ -6,16 +6,6 @@ import {
   DataSourceContext,
 } from "@graphprotocol/graph-ts";
 
-export class Token extends DataSourceTemplate {
-  static create(address: Address): void {
-    DataSourceTemplate.create("Token", [address.toHex()]);
-  }
-
-  static createWithContext(address: Address, context: DataSourceContext): void {
-    DataSourceTemplate.createWithContext("Token", [address.toHex()], context);
-  }
-}
-
 export class DEXPool extends DataSourceTemplate {
   static create(address: Address): void {
     DataSourceTemplate.create("DEXPool", [address.toHex()]);
