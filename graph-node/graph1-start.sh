@@ -3,6 +3,18 @@ set -e
 
 BASE_DIR="/Users/salchad27/Desktop/PH/web3/sentineldex"
 SUBGRAPH_DIR="$BASE_DIR/subgraph-sentineldex"
+HARDHAT_DIR="$BASE_DIR/hardhat"
+
+echo "=== Starting Hardhat Node ==="
+cd "$HARDHAT_DIR"
+# Kill any existing hardhat processes
+pkill -f "hardhat node" || true
+sleep 2
+# Start hardhat node in background
+npx hardhat node --hostname 127.0.0.1 &
+HARDHAT_PID=$!
+echo "Hardhat node started with PID: $HARDHAT_PID"
+sleep 5
 
 echo "=== Starting Graph Node Infrastructure ==="
 cd "$BASE_DIR/graph-node"
@@ -42,33 +54,19 @@ for i in {1..30}; do
 done
 
 echo ""
-echo "=== Deploying Subgraph ==="
-cd "$SUBGRAPH_DIR"
-
-# Remove existing subgraph if it exists (ignore errors if not found)
-echo "Removing existing subgraph if any..."
-graph remove --node http://localhost:8020 subgraph-sentineldex 2>/dev/null || true
-
-# Create subgraph
-echo "Creating subgraph..."
-graph create --node http://localhost:8020 subgraph-sentineldex
-
-# Generate types and build
-echo "Generating types..."
-npm run codegen
-
-echo "Building subgraph..."
-npm run build
-
-# Deploy
-echo "Deploying subgraph..."
-graph deploy \
-  --node http://localhost:8020 \
-  --ipfs http://localhost:5001 \
-  subgraph-sentineldex \
-  --version-label v1
+echo "=== Deploying Contracts ==="
+cd "$HARDHAT_DIR"
+./scripts/deploy.sh
 
 echo ""
-echo "=== Done! ==="
+echo "=== Infrastructure Ready! ==="
+echo "✓ Hardhat node running"
 echo "✓ Graph Node infrastructure started"
-echo "✓ Subgraph deployed successfully"
+echo "✓ Contracts deployed"
+echo ""
+echo "Now you can:"
+echo "1. Create pools using the UI or manually"
+echo "2. Add liquidity to pools"
+echo ""
+echo "When done creating pools, run: ./graph2-deploy.sh"
+
