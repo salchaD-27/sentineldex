@@ -1,17 +1,23 @@
-import { BigInt, Bytes, ethereum, Address } from "@graphprotocol/graph-ts";
+import { BigInt, Bytes, ethereum, log, Address } from "@graphprotocol/graph-ts";
 import { PoolCreated as PoolCreatedEvent } from "../generated/DEXFactory/DEXFactory";
 import { TestToken1 as TestToken1Contract } from "../generated/DEXFactory/TestToken1";
-import { TestToken2 as TestToken2Contract } from "../generated/DEXFactory/TestToken2";
-import { TestToken3 as TestToken3Contract } from "../generated/DEXFactory/TestToken3";
-import { TestToken4 as TestToken4Contract } from "../generated/DEXFactory/TestToken4";
-import { TestToken5 as TestToken5Contract } from "../generated/DEXFactory/TestToken5";
-import { TestToken6 as TestToken6Contract } from "../generated/DEXFactory/TestToken6";
-import { TestToken7 as TestToken7Contract } from "../generated/DEXFactory/TestToken7";
-import { Pool, Token, User } from "../generated/schema";
-import { DEXPool as DEXPoolTemplate } from "../generated/templates";
+import { 
+  TokenCore, 
+  TokenSymbol, 
+  TokenName, 
+  TokenDecimals, 
+  TokenTotalSupply, 
+  Pool, 
+  User 
+} from "../generated/schema";
+import { DEXPool as DEXPoolTemplate, Token as TokenTemplate } from "../generated/templates";
 
 // Constants
 const FEE_BPS = 30;
+
+// =====================================================
+// Helper Functions
+// =====================================================
 
 // Helper to get or create user
 function getUser(address: Bytes): User {
@@ -25,155 +31,197 @@ function getUser(address: Bytes): User {
   return user;
 }
 
-// Helper to fetch token data based on address - tries all token contracts
-function fetchTokenData(address: Bytes): Token {
+// Helper to get or create TokenCore (minimal entity with no eth_calls)
+function getOrCreateTokenCore(address: Bytes): TokenCore {
   let id = address.toHex();
-  let token = Token.load(id);
-
+  let token = TokenCore.load(id);
+  
   if (!token) {
-    token = new Token(id);
+    token = new TokenCore(id);
     token.address = address;
-
-    // Try each token contract to get metadata
-    let contractAddress = Address.fromBytes(address);
-    let symbol = "";
-    let name = "";
-    let decimals = 18;
-    let totalSupply = BigInt.fromI32(0);
-
-    // Try TestToken1
-    let contract1 = TestToken1Contract.bind(contractAddress);
-    let symbolResult = contract1.try_symbol();
-    if (!symbolResult.reverted) {
-      symbol = symbolResult.value;
-      let nameResult = contract1.try_name();
-      if (!nameResult.reverted) name = nameResult.value;
-      let decimalsResult = contract1.try_decimals();
-      if (!decimalsResult.reverted) decimals = decimalsResult.value;
-      let totalSupplyResult = contract1.try_totalSupply();
-      if (!totalSupplyResult.reverted) totalSupply = totalSupplyResult.value;
-    } else {
-      // Try TestToken2
-      let contract2 = TestToken2Contract.bind(contractAddress);
-      symbolResult = contract2.try_symbol();
-      if (!symbolResult.reverted) {
-        symbol = symbolResult.value;
-        let nameResult = contract2.try_name();
-        if (!nameResult.reverted) name = nameResult.value;
-        let decimalsResult = contract2.try_decimals();
-        if (!decimalsResult.reverted) decimals = decimalsResult.value;
-        let totalSupplyResult = contract2.try_totalSupply();
-        if (!totalSupplyResult.reverted) totalSupply = totalSupplyResult.value;
-      } else {
-        // Try TestToken3
-        let contract3 = TestToken3Contract.bind(contractAddress);
-        symbolResult = contract3.try_symbol();
-        if (!symbolResult.reverted) {
-          symbol = symbolResult.value;
-          let nameResult = contract3.try_name();
-          if (!nameResult.reverted) name = nameResult.value;
-          let decimalsResult = contract3.try_decimals();
-          if (!decimalsResult.reverted) decimals = decimalsResult.value;
-          let totalSupplyResult = contract3.try_totalSupply();
-          if (!totalSupplyResult.reverted) totalSupply = totalSupplyResult.value;
-        } else {
-          // Try TestToken4
-          let contract4 = TestToken4Contract.bind(contractAddress);
-          symbolResult = contract4.try_symbol();
-          if (!symbolResult.reverted) {
-            symbol = symbolResult.value;
-            let nameResult = contract4.try_name();
-            if (!nameResult.reverted) name = nameResult.value;
-            let decimalsResult = contract4.try_decimals();
-            if (!decimalsResult.reverted) decimals = decimalsResult.value;
-            let totalSupplyResult = contract4.try_totalSupply();
-            if (!totalSupplyResult.reverted) totalSupply = totalSupplyResult.value;
-          } else {
-            // Try TestToken5
-            let contract5 = TestToken5Contract.bind(contractAddress);
-            symbolResult = contract5.try_symbol();
-            if (!symbolResult.reverted) {
-              symbol = symbolResult.value;
-              let nameResult = contract5.try_name();
-              if (!nameResult.reverted) name = nameResult.value;
-              let decimalsResult = contract5.try_decimals();
-              if (!decimalsResult.reverted) decimals = decimalsResult.value;
-              let totalSupplyResult = contract5.try_totalSupply();
-              if (!totalSupplyResult.reverted) totalSupply = totalSupplyResult.value;
-            } else {
-              // Try TestToken6
-              let contract6 = TestToken6Contract.bind(contractAddress);
-              symbolResult = contract6.try_symbol();
-              if (!symbolResult.reverted) {
-                symbol = symbolResult.value;
-                let nameResult = contract6.try_name();
-                if (!nameResult.reverted) name = nameResult.value;
-                let decimalsResult = contract6.try_decimals();
-                if (!decimalsResult.reverted) decimals = decimalsResult.value;
-                let totalSupplyResult = contract6.try_totalSupply();
-                if (!totalSupplyResult.reverted) totalSupply = totalSupplyResult.value;
-              } else {
-                // Try TestToken7
-                let contract7 = TestToken7Contract.bind(contractAddress);
-                symbolResult = contract7.try_symbol();
-                if (!symbolResult.reverted) {
-                  symbol = symbolResult.value;
-                  let nameResult = contract7.try_name();
-                  if (!nameResult.reverted) name = nameResult.value;
-                  let decimalsResult = contract7.try_decimals();
-                  if (!decimalsResult.reverted) decimals = decimalsResult.value;
-                  let totalSupplyResult = contract7.try_totalSupply();
-                  if (!totalSupplyResult.reverted) totalSupply = totalSupplyResult.value;
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-
-    token.symbol = symbol;
-    token.name = name;
-    token.decimals = BigInt.fromI32(decimals);
-    token.totalSupply = totalSupply;
-    
     token.save();
+    log.info('Created TokenCore for: {}', [id]);
   }
-
+  
   return token;
 }
 
-// PoolCreated handler
+// =====================================================
+// EVENT HANDLER: PoolCreated
+// =====================================================
 export function handlePoolCreated(event: PoolCreatedEvent): void {
+  log.info('=== DEBUG: PoolCreated event ===', []);
+  log.info('Pool: {}', [event.params.pool.toHexString()]);
+  log.info('Token0: {}', [event.params.token0.toHexString()]);
+  log.info('Token1: {}', [event.params.token1.toHexString()]);
+  
   let poolId = event.params.pool.toHex();
-  let pool = Pool.load(poolId);
-
-  if (!pool) {
-    pool = new Pool(poolId);
+  
+  if (!Pool.load(poolId)) {
+    // Create TokenCores first (no eth_calls)
+    let token0 = getOrCreateTokenCore(event.params.token0);
+    let token1 = getOrCreateTokenCore(event.params.token1);
+    
+    // Create Pool
+    let pool = new Pool(poolId);
     pool.address = event.params.pool;
-
-    // Set token references (fetch and store token data)
-    let token0 = fetchTokenData(event.params.token0);
-    let token1 = fetchTokenData(event.params.token1);
     pool.token0 = token0.id;
     pool.token1 = token1.id;
-
-    // Initialize reserves and supply
     pool.reserve0 = BigInt.fromI32(0);
     pool.reserve1 = BigInt.fromI32(0);
     pool.totalSupply = BigInt.fromI32(0);
-
-    // Set fee (30 bps = 0.3%)
     pool.fee = BigInt.fromI32(FEE_BPS);
-
-    // Set timestamps
     pool.createdAt = event.block.timestamp;
     pool.createdAtBlock = event.block.number;
-
     pool.save();
-
+    
+    log.info('Pool created: {}', [poolId]);
+    
     // Create data source for the new pool to start indexing its events
     DEXPoolTemplate.create(event.params.pool);
+    log.info('DEXPoolTemplate created for pool', []);
+    
+    // Create Token templates for token0 and token1
+    // This will trigger call handlers for symbol(), name(), decimals(), totalSupply()
+    TokenTemplate.create(event.params.token0);
+    TokenTemplate.create(event.params.token1);
+    log.info('TokenTemplate created for token0 and token1', []);
+  }
+}
+
+// =====================================================
+// CALL HANDLERS: Token metadata (one eth_call per handler)
+// =====================================================
+
+export function handleSymbolCall(event: ethereum.Call): void {
+  let tokenAddress = event.transaction.to;
+  if (!tokenAddress) return;
+  
+  let tokenId = tokenAddress.toHex();
+  let symbolId = tokenId + "-symbol";
+  
+  log.info('=== Symbol Call for: {} ===', [tokenId]);
+  
+  // Get or create TokenCore
+  let tokenCore = getOrCreateTokenCore(tokenAddress);
+  
+  // Check if already exists
+  if (TokenSymbol.load(symbolId)) {
+    log.info('TokenSymbol already exists for: {}', [tokenId]);
+    return;
+  }
+  
+  // Get contract
+  let contract = TestToken1Contract.bind(tokenAddress);
+  let symbolResult = contract.try_symbol();
+  
+  if (!symbolResult.reverted) {
+    let symbol = new TokenSymbol(symbolId);
+    symbol.token = tokenCore.id;
+    symbol.value = symbolResult.value;
+    symbol.save();
+    log.info('Saved symbol: {} for token: {}', [symbolResult.value, tokenId]);
+  } else {
+    log.warning('Symbol call reverted for: {}', [tokenId]);
+  }
+}
+
+export function handleNameCall(event: ethereum.Call): void {
+  let tokenAddress = event.transaction.to;
+  if (!tokenAddress) return;
+  
+  let tokenId = tokenAddress.toHex();
+  let nameId = tokenId + "-name";
+  
+  log.info('=== Name Call for: {} ===', [tokenId]);
+  
+  // Get or create TokenCore
+  let tokenCore = getOrCreateTokenCore(tokenAddress);
+  
+  // Check if already exists
+  if (TokenName.load(nameId)) {
+    log.info('TokenName already exists for: {}', [tokenId]);
+    return;
+  }
+  
+  // Get contract
+  let contract = TestToken1Contract.bind(tokenAddress);
+  let nameResult = contract.try_name();
+  
+  if (!nameResult.reverted) {
+    let name = new TokenName(nameId);
+    name.token = tokenCore.id;
+    name.value = nameResult.value;
+    name.save();
+    log.info('Saved name: {} for token: {}', [nameResult.value, tokenId]);
+  } else {
+    log.warning('Name call reverted for: {}', [tokenId]);
+  }
+}
+
+export function handleDecimalsCall(event: ethereum.Call): void {
+  let tokenAddress = event.transaction.to;
+  if (!tokenAddress) return;
+  
+  let tokenId = tokenAddress.toHex();
+  let decimalsId = tokenId + "-decimals";
+  
+  log.info('=== Decimals Call for: {} ===', [tokenId]);
+  
+  // Get or create TokenCore
+  let tokenCore = getOrCreateTokenCore(tokenAddress);
+  
+  // Check if already exists
+  if (TokenDecimals.load(decimalsId)) {
+    log.info('TokenDecimals already exists for: {}', [tokenId]);
+    return;
+  }
+  
+  // Get contract
+  let contract = TestToken1Contract.bind(tokenAddress);
+  let decimalsResult = contract.try_decimals();
+  
+  if (!decimalsResult.reverted) {
+    let decimals = new TokenDecimals(decimalsId);
+    decimals.token = tokenCore.id;
+    decimals.value = BigInt.fromI32(decimalsResult.value);
+    decimals.save();
+    log.info('Saved decimals: {} for token: {}', [decimalsResult.value.toString(), tokenId]);
+  } else {
+    log.warning('Decimals call reverted for: {}', [tokenId]);
+  }
+}
+
+export function handleTotalSupplyCall(event: ethereum.Call): void {
+  let tokenAddress = event.transaction.to;
+  if (!tokenAddress) return;
+  
+  let tokenId = tokenAddress.toHex();
+  let totalSupplyId = tokenId + "-totalsupply";
+  
+  log.info('=== TotalSupply Call for: {} ===', [tokenId]);
+  
+  // Get or create TokenCore
+  let tokenCore = getOrCreateTokenCore(tokenAddress);
+  
+  // Check if already exists
+  if (TokenTotalSupply.load(totalSupplyId)) {
+    log.info('TokenTotalSupply already exists for: {}', [tokenId]);
+    return;
+  }
+  
+  // Get contract
+  let contract = TestToken1Contract.bind(tokenAddress);
+  let totalSupplyResult = contract.try_totalSupply();
+  
+  if (!totalSupplyResult.reverted) {
+    let totalSupply = new TokenTotalSupply(totalSupplyId);
+    totalSupply.token = tokenCore.id;
+    totalSupply.value = totalSupplyResult.value;
+    totalSupply.save();
+    log.info('Saved totalSupply: {} for token: {}', [totalSupplyResult.value.toString(), tokenId]);
+  } else {
+    log.warning('TotalSupply call reverted for: {}', [tokenId]);
   }
 }
 

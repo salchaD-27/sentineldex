@@ -11,7 +11,7 @@ import {
   BigDecimal,
 } from "@graphprotocol/graph-ts";
 
-export class Token extends Entity {
+export class TokenCore extends Entity {
   constructor(id: string) {
     super();
     this.set("id", Value.fromString(id));
@@ -19,22 +19,22 @@ export class Token extends Entity {
 
   save(): void {
     let id = this.get("id");
-    assert(id != null, "Cannot save Token entity without an ID");
+    assert(id != null, "Cannot save TokenCore entity without an ID");
     if (id) {
       assert(
         id.kind == ValueKind.STRING,
-        `Entities of type Token must have an ID of type String but the id '${id.displayData()}' is of type ${id.displayKind()}`,
+        `Entities of type TokenCore must have an ID of type String but the id '${id.displayData()}' is of type ${id.displayKind()}`,
       );
-      store.set("Token", id.toString(), this);
+      store.set("TokenCore", id.toString(), this);
     }
   }
 
-  static loadInBlock(id: string): Token | null {
-    return changetype<Token | null>(store.get_in_block("Token", id));
+  static loadInBlock(id: string): TokenCore | null {
+    return changetype<TokenCore | null>(store.get_in_block("TokenCore", id));
   }
 
-  static load(id: string): Token | null {
-    return changetype<Token | null>(store.get("Token", id));
+  static load(id: string): TokenCore | null {
+    return changetype<TokenCore | null>(store.get("TokenCore", id));
   }
 
   get id(): string {
@@ -62,9 +62,38 @@ export class Token extends Entity {
   set address(value: Bytes) {
     this.set("address", Value.fromBytes(value));
   }
+}
 
-  get symbol(): string {
-    let value = this.get("symbol");
+export class TokenSymbol extends Entity {
+  constructor(id: string) {
+    super();
+    this.set("id", Value.fromString(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(id != null, "Cannot save TokenSymbol entity without an ID");
+    if (id) {
+      assert(
+        id.kind == ValueKind.STRING,
+        `Entities of type TokenSymbol must have an ID of type String but the id '${id.displayData()}' is of type ${id.displayKind()}`,
+      );
+      store.set("TokenSymbol", id.toString(), this);
+    }
+  }
+
+  static loadInBlock(id: string): TokenSymbol | null {
+    return changetype<TokenSymbol | null>(
+      store.get_in_block("TokenSymbol", id),
+    );
+  }
+
+  static load(id: string): TokenSymbol | null {
+    return changetype<TokenSymbol | null>(store.get("TokenSymbol", id));
+  }
+
+  get id(): string {
+    let value = this.get("id");
     if (!value || value.kind == ValueKind.NULL) {
       throw new Error("Cannot return null for a required field.");
     } else {
@@ -72,12 +101,12 @@ export class Token extends Entity {
     }
   }
 
-  set symbol(value: string) {
-    this.set("symbol", Value.fromString(value));
+  set id(value: string) {
+    this.set("id", Value.fromString(value));
   }
 
-  get name(): string {
-    let value = this.get("name");
+  get token(): string {
+    let value = this.get("token");
     if (!value || value.kind == ValueKind.NULL) {
       throw new Error("Cannot return null for a required field.");
     } else {
@@ -85,12 +114,146 @@ export class Token extends Entity {
     }
   }
 
-  set name(value: string) {
-    this.set("name", Value.fromString(value));
+  set token(value: string) {
+    this.set("token", Value.fromString(value));
   }
 
-  get decimals(): BigInt {
-    let value = this.get("decimals");
+  get value(): string {
+    let value = this.get("value");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set value(value: string) {
+    this.set("value", Value.fromString(value));
+  }
+}
+
+export class TokenName extends Entity {
+  constructor(id: string) {
+    super();
+    this.set("id", Value.fromString(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(id != null, "Cannot save TokenName entity without an ID");
+    if (id) {
+      assert(
+        id.kind == ValueKind.STRING,
+        `Entities of type TokenName must have an ID of type String but the id '${id.displayData()}' is of type ${id.displayKind()}`,
+      );
+      store.set("TokenName", id.toString(), this);
+    }
+  }
+
+  static loadInBlock(id: string): TokenName | null {
+    return changetype<TokenName | null>(store.get_in_block("TokenName", id));
+  }
+
+  static load(id: string): TokenName | null {
+    return changetype<TokenName | null>(store.get("TokenName", id));
+  }
+
+  get id(): string {
+    let value = this.get("id");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set id(value: string) {
+    this.set("id", Value.fromString(value));
+  }
+
+  get token(): string {
+    let value = this.get("token");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set token(value: string) {
+    this.set("token", Value.fromString(value));
+  }
+
+  get value(): string {
+    let value = this.get("value");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set value(value: string) {
+    this.set("value", Value.fromString(value));
+  }
+}
+
+export class TokenDecimals extends Entity {
+  constructor(id: string) {
+    super();
+    this.set("id", Value.fromString(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(id != null, "Cannot save TokenDecimals entity without an ID");
+    if (id) {
+      assert(
+        id.kind == ValueKind.STRING,
+        `Entities of type TokenDecimals must have an ID of type String but the id '${id.displayData()}' is of type ${id.displayKind()}`,
+      );
+      store.set("TokenDecimals", id.toString(), this);
+    }
+  }
+
+  static loadInBlock(id: string): TokenDecimals | null {
+    return changetype<TokenDecimals | null>(
+      store.get_in_block("TokenDecimals", id),
+    );
+  }
+
+  static load(id: string): TokenDecimals | null {
+    return changetype<TokenDecimals | null>(store.get("TokenDecimals", id));
+  }
+
+  get id(): string {
+    let value = this.get("id");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set id(value: string) {
+    this.set("id", Value.fromString(value));
+  }
+
+  get token(): string {
+    let value = this.get("token");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set token(value: string) {
+    this.set("token", Value.fromString(value));
+  }
+
+  get value(): BigInt {
+    let value = this.get("value");
     if (!value || value.kind == ValueKind.NULL) {
       throw new Error("Cannot return null for a required field.");
     } else {
@@ -98,12 +261,69 @@ export class Token extends Entity {
     }
   }
 
-  set decimals(value: BigInt) {
-    this.set("decimals", Value.fromBigInt(value));
+  set value(value: BigInt) {
+    this.set("value", Value.fromBigInt(value));
+  }
+}
+
+export class TokenTotalSupply extends Entity {
+  constructor(id: string) {
+    super();
+    this.set("id", Value.fromString(id));
   }
 
-  get totalSupply(): BigInt {
-    let value = this.get("totalSupply");
+  save(): void {
+    let id = this.get("id");
+    assert(id != null, "Cannot save TokenTotalSupply entity without an ID");
+    if (id) {
+      assert(
+        id.kind == ValueKind.STRING,
+        `Entities of type TokenTotalSupply must have an ID of type String but the id '${id.displayData()}' is of type ${id.displayKind()}`,
+      );
+      store.set("TokenTotalSupply", id.toString(), this);
+    }
+  }
+
+  static loadInBlock(id: string): TokenTotalSupply | null {
+    return changetype<TokenTotalSupply | null>(
+      store.get_in_block("TokenTotalSupply", id),
+    );
+  }
+
+  static load(id: string): TokenTotalSupply | null {
+    return changetype<TokenTotalSupply | null>(
+      store.get("TokenTotalSupply", id),
+    );
+  }
+
+  get id(): string {
+    let value = this.get("id");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set id(value: string) {
+    this.set("id", Value.fromString(value));
+  }
+
+  get token(): string {
+    let value = this.get("token");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set token(value: string) {
+    this.set("token", Value.fromString(value));
+  }
+
+  get value(): BigInt {
+    let value = this.get("value");
     if (!value || value.kind == ValueKind.NULL) {
       throw new Error("Cannot return null for a required field.");
     } else {
@@ -111,8 +331,8 @@ export class Token extends Entity {
     }
   }
 
-  set totalSupply(value: BigInt) {
-    this.set("totalSupply", Value.fromBigInt(value));
+  set value(value: BigInt) {
+    this.set("value", Value.fromBigInt(value));
   }
 }
 

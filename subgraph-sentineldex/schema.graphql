@@ -1,17 +1,39 @@
-type Token @entity(immutable: false) {
+# Minimal core entity - created immediately with no eth_calls
+type TokenCore @entity(immutable: false) {
   id: ID!
   address: Bytes!
-  symbol: String!
-  name: String!
-  decimals: BigInt!
-  totalSupply: BigInt!
+}
+
+# Individual metadata entities - each fetched separately with one eth_call
+type TokenSymbol @entity(immutable: false) {
+  id: ID!           # token_address + "-symbol"
+  token: TokenCore!
+  value: String!
+}
+
+type TokenName @entity(immutable: false) {
+  id: ID!           # token_address + "-name"
+  token: TokenCore!
+  value: String!
+}
+
+type TokenDecimals @entity(immutable: false) {
+  id: ID!           # token_address + "-decimals"
+  token: TokenCore!
+  value: BigInt!
+}
+
+type TokenTotalSupply @entity(immutable: false) {
+  id: ID!           # token_address + "-totalsupply"
+  token: TokenCore!
+  value: BigInt!
 }
 
 type Pool @entity(immutable: false) {
   id: ID!
   address: Bytes!
-  token0: Token!
-  token1: Token!
+  token0: TokenCore!
+  token1: TokenCore!
   reserve0: BigInt!
   reserve1: BigInt!
   totalSupply: BigInt!
@@ -40,8 +62,8 @@ type Swap @entity(immutable: true) {
   id: ID!
   user: User!
   pool: Pool!
-  tokenIn: Token!
-  tokenOut: Token!
+  tokenIn: TokenCore!
+  tokenOut: TokenCore!
   amountIn: BigInt!
   amountOut: BigInt!
   fee: BigInt!

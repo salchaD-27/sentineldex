@@ -20,11 +20,15 @@ export default defineConfig({
     },
   },
   networks: {
+    hardhat: {
+      type: "edr-simulated",
+      blockGasLimit: 50_000_000,
+    },
     localhost: {
       type: "http",
-      url: 'http://127.0.0.1:8545/',
-      gas: 'auto',
-      gasPrice: 'auto',
+      url: "http://127.0.0.1:8545/",
+      gas: "auto",
+      gasPrice: "auto",
       gasMultiplier: 10,
     },
   },

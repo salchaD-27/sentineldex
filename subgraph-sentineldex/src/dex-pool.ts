@@ -1,8 +1,8 @@
-import { BigInt, Bytes } from "@graphprotocol/graph-ts";
+import { BigInt, Bytes, log } from "@graphprotocol/graph-ts";
 import { LiquidityAdded as LiquidityAddedEvent } from "../generated/DEXPool/DEXPool";
 import { LiquidityRemoved as LiquidityRemovedEvent } from "../generated/DEXPool/DEXPool";
 import { LiquiditySwapped as LiquiditySwappedEvent } from "../generated/DEXPool/DEXPool";
-import { Pool, Token, User, LiquidityPosition, Swap, LiquidityChange } from "../generated/schema";
+import { Pool, TokenCore, User, LiquidityPosition, Swap, LiquidityChange } from "../generated/schema";
 
 // Constants
 const FEE_BPS = 30;
@@ -20,24 +20,32 @@ function getUserId(address: Bytes): string {
   return id;
 }
 
-// Helper to get or create token and return its ID
-function getTokenId(address: Bytes): string {
+// Helper to get or create TokenCore (minimal entity, no eth_calls)
+function getOrCreateTokenCore(address: Bytes): TokenCore {
   let id = address.toHex();
-  let token = Token.load(id);
+  let token = TokenCore.load(id);
+  
   if (!token) {
-    token = new Token(id);
+    token = new TokenCore(id);
     token.address = address;
-    token.symbol = "";
-    token.name = "";
-    token.decimals = BigInt.fromI32(0);
-    token.totalSupply = BigInt.fromI32(0);
     token.save();
+    log.info('Created TokenCore for: {}', [id]);
   }
-  return id;
+  
+  return token;
 }
 
-// LiquidityAdded handler
+// =====================================================
+// HANDLER 1: LiquidityAdded
+// =====================================================
 export function handleLiquidityAdded(event: LiquidityAddedEvent): void {
+  log.info('=== DEBUG: LiquidityAdded event ===', []);
+  log.info('Pool: {}', [event.address.toHexString()]);
+  log.info('Provider: {}', [event.params.provider.toHexString()]);
+  log.info('AmountToken0: {}', [event.params.amountToken0.toString()]);
+  log.info('AmountToken1: {}', [event.params.amountToken1.toString()]);
+  log.info('LiquidityMinted: {}', [event.params.liquidityMinted.toString()]);
+  
   let provider = event.params.provider;
   let amountToken0 = event.params.amountToken0;
   let amountToken1 = event.params.amountToken1;
@@ -45,11 +53,15 @@ export function handleLiquidityAdded(event: LiquidityAddedEvent): void {
 
   // Get user ID
   let userId = getUserId(provider);
+  log.info('User ID: {}', [userId]);
 
-  // Get pool (address from event context)
+  // Get pool
   let poolAddress = event.address;
   let poolId = poolAddress.toHex();
+  log.info('Pool ID: {}', [poolId]);
+  
   let pool = Pool.load(poolId);
+  log.info('Pool found: {}', [pool ? 'true' : 'false']);
 
   if (pool) {
     // Update pool reserves
@@ -92,8 +104,17 @@ export function handleLiquidityAdded(event: LiquidityAddedEvent): void {
   }
 }
 
-// LiquidityRemoved handler
+// =====================================================
+// HANDLER 2: LiquidityRemoved
+// =====================================================
 export function handleLiquidityRemoved(event: LiquidityRemovedEvent): void {
+  log.info('=== DEBUG: LiquidityRemoved event ===', []);
+  log.info('Pool: {}', [event.address.toHexString()]);
+  log.info('Provider: {}', [event.params.provider.toHexString()]);
+  log.info('AmountToken0: {}', [event.params.amountToken0.toString()]);
+  log.info('AmountToken1: {}', [event.params.amountToken1.toString()]);
+  log.info('LiquidityBurned: {}', [event.params.liquidityBurned.toString()]);
+  
   let provider = event.params.provider;
   let amountToken0 = event.params.amountToken0;
   let amountToken1 = event.params.amountToken1;
@@ -106,6 +127,7 @@ export function handleLiquidityRemoved(event: LiquidityRemovedEvent): void {
   let poolAddress = event.address;
   let poolId = poolAddress.toHex();
   let pool = Pool.load(poolId);
+  log.info('Pool found: {}', [pool ? 'true' : 'false']);
 
   if (pool) {
     // Update pool reserves
@@ -121,7 +143,7 @@ export function handleLiquidityRemoved(event: LiquidityRemovedEvent): void {
     if (lp) {
       lp.liquidityTokenBalance = lp.liquidityTokenBalance.minus(liquidityBurned);
       lp.token0Amount = lp.token0Amount.minus(amountToken0);
-      lp.token1Amount = lp.token1Amount.minus(amountToken1);
+      lp.token0Amount = lp.token0Amount.minus(amountToken1);
       lp.updatedAt = event.block.timestamp;
       lp.save();
     }
@@ -140,8 +162,18 @@ export function handleLiquidityRemoved(event: LiquidityRemovedEvent): void {
   }
 }
 
-// LiquiditySwapped handler
+// =====================================================
+// HANDLER 3: LiquiditySwapped
+// =====================================================
 export function handleLiquiditySwapped(event: LiquiditySwappedEvent): void {
+  log.info('=== DEBUG: LiquiditySwapped event ===', []);
+  log.info('Pool: {}', [event.address.toHexString()]);
+  log.info('Provider: {}', [event.params.provider.toHexString()]);
+  log.info('TokenIn: {}', [event.params.tokenIn.toHexString()]);
+  log.info('AmountIn: {}', [event.params.amountIn.toString()]);
+  log.info('TokenOut: {}', [event.params.tokenOut.toHexString()]);
+  log.info('AmountOut: {}', [event.params.amountOut.toString()]);
+  
   let provider = event.params.provider;
   let tokenIn = event.params.tokenIn;
   let amountIn = event.params.amountIn;
@@ -155,6 +187,7 @@ export function handleLiquiditySwapped(event: LiquiditySwappedEvent): void {
   let poolAddress = event.address;
   let poolId = poolAddress.toHex();
   let pool = Pool.load(poolId);
+  log.info('Pool found: {}', [pool ? 'true' : 'false']);
 
   if (pool) {
     // Calculate fee (0.3%)
@@ -171,17 +204,17 @@ export function handleLiquiditySwapped(event: LiquiditySwappedEvent): void {
     }
     pool.save();
 
-    // Get token IDs
-    let tokenInId = getTokenId(tokenIn);
-    let tokenOutId = getTokenId(tokenOut);
+    // Get or create TokenCore entities
+    let tokenInCore = getOrCreateTokenCore(tokenIn);
+    let tokenOutCore = getOrCreateTokenCore(tokenOut);
 
     // Create swap record
     let swapId = event.transaction.hash.toHex() + "-" + event.logIndex.toString();
     let swap = new Swap(swapId);
     swap.user = userId;
     swap.pool = poolId;
-    swap.tokenIn = tokenInId;
-    swap.tokenOut = tokenOutId;
+    swap.tokenIn = tokenInCore.id;
+    swap.tokenOut = tokenOutCore.id;
     swap.amountIn = amountIn;
     swap.amountOut = amountOut;
     swap.fee = fee;

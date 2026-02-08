@@ -1,4 +1,3 @@
-
 specVersion: 0.0.5
 schema:
   file: ./schema.graphql
@@ -15,33 +14,49 @@ dataSources:
       apiVersion: 0.0.7
       language: wasm/assemblyscript
       entities:
+        - TokenCore
         - Pool
-        - Token
         - User
       abis:
         - name: DEXFactory
           file: ./abis/DEXFactory.json
-        - name: TestToken1
-          file: ./abis/TestToken1.json
-        - name: TestToken2
-          file: ./abis/TestToken2.json
-        - name: TestToken3
-          file: ./abis/TestToken3.json
-        - name: TestToken4
-          file: ./abis/TestToken4.json
-        - name: TestToken5
-          file: ./abis/TestToken5.json
-        - name: TestToken6
-          file: ./abis/TestToken6.json
-        - name: TestToken7
-          file: ./abis/TestToken7.json
       eventHandlers:
         - event: PoolCreated(indexed address,indexed address,address)
           handler: handlePoolCreated
       file: ./src/dex-factory.ts
 templates:
-  - name: DEXPool
+  # Token template - created dynamically for each token found
+  - name: Token
     kind: ethereum
+    network: hardhat
+    source:
+      abi: TestToken1
+    mapping:
+      kind: ethereum/call
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - TokenCore
+        - TokenSymbol
+        - TokenName
+        - TokenDecimals
+        - TokenTotalSupply
+      abis:
+        - name: TestToken1
+          file: ./abis/TestToken1.json
+      callHandlers:
+        - function: symbol()
+          handler: handleSymbolCall
+        - function: name()
+          handler: handleNameCall
+        - function: decimals()
+          handler: handleDecimalsCall
+        - function: totalSupply()
+          handler: handleTotalSupplyCall
+      file: ./src/dex-factory.ts
+  # DEXPool template
+  - kind: ethereum
+    name: DEXPool
     network: hardhat
     source:
       abi: DEXPool
@@ -51,7 +66,7 @@ templates:
       language: wasm/assemblyscript
       entities:
         - Pool
-        - Token
+        - TokenCore
         - User
         - LiquidityPosition
         - Swap
