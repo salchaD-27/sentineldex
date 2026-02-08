@@ -1,6 +1,7 @@
 import { BigInt, Bytes, ethereum, Address } from "@graphprotocol/graph-ts";
 import { PoolCreated as PoolCreatedEvent } from "../generated/DEXFactory/DEXFactory";
 import { Pool, Token, User } from "../generated/schema";
+import { DEXPool as DEXPoolTemplate } from "../generated/templates";
 
 // Constants
 const FEE_BPS = 30;
@@ -25,12 +26,12 @@ function fetchTokenData(address: Bytes): Token {
   if (!token) {
     token = new Token(id);
     token.address = address;
-
-    // Default values - metadata will be empty until manually set or fetched separately
-    // This avoids gas limit issues on local Hardhat network
+    
+    // Skip contract calls to avoid Hardhat gas limit
+    // Token metadata can be added later via manual updates or a separate process
     token.symbol = "";
     token.name = "";
-    token.decimals = BigInt.fromI32(18); // Default to 18 decimals
+    token.decimals = BigInt.fromI32(18);
     token.totalSupply = BigInt.fromI32(0);
     
     token.save();
@@ -67,6 +68,9 @@ export function handlePoolCreated(event: PoolCreatedEvent): void {
     pool.createdAtBlock = event.block.number;
 
     pool.save();
+
+    // Create data source for the new pool to start indexing its events
+    DEXPoolTemplate.create(event.params.pool);
   }
 }
 
